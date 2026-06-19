@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b0e18" />
+  <title>Zombie Mall Tycoon Survivor</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- CrazyGames SDK (loads if available; game runs fine without it) -->
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+</head>
+<body>
+  <div id="game-root">
+    <!-- Canvas gameplay layer -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- ============ DOM UI OVERLAYS ============ -->
+
+    <!-- Loading -->
+    <div id="loading" class="screen">
+      <div class="logo">ZOMBIE MALL<br /><span>TYCOON SURVIVOR</span></div>
+      <div class="loadbar"><div id="loadbar-fill"></div></div>
+      <div class="loadtip">Cargando el centro comercial…</div>
+    </div>
+
+    <!-- Main menu -->
+    <div id="menu" class="screen hidden">
+      <div class="logo">ZOMBIE MALL<br /><span>TYCOON SURVIVOR</span></div>
+      <div class="menu-sub">Sobrevive mientras construyes tu centro comercial.</div>
+      <button class="btn btn-primary" id="btn-play">▶ JUGAR</button>
+      <button class="btn" id="btn-meta">🛠 MEJORAS · <span id="menu-tokens">0</span> 🪙</button>
+      <button class="btn btn-ghost" id="btn-howto">❔ Cómo se juega</button>
+      <div class="menu-foot">
+        <button class="icon-btn" id="btn-mute">🔊</button>
+        <span class="hint">WASD / flechas o joystick · disparo automático</span>
+      </div>
+    </div>
+
+    <!-- How to play -->
+    <div id="howto" class="screen modal hidden">
+      <div class="panel">
+        <h2>Cómo se juega</h2>
+        <ul class="howto-list">
+          <li>🕹️ <b>Muévete</b> con WASD / flechas (o el joystick en móvil).</li>
+          <li>🔫 Tu arma <b>dispara sola</b> al zombi más cercano.</li>
+          <li>🏪 Toca una <b>parcela brillante</b> para construir tiendas.</li>
+          <li>💰 Las tiendas dan <b>ingresos pasivos</b> y <b>bonus de combate</b>.</li>
+          <li>⭐ Sube de nivel y elige <b>cartas de mejora</b>.</li>
+          <li>🧟 Sobrevive oleadas cada vez más duras. ¡Jefe cada 5 oleadas!</li>
+        </ul>
+        <button class="btn btn-primary" id="btn-howto-close">¡Entendido!</button>
+      </div>
+    </div>
+
+    <!-- Meta upgrades -->
+    <div id="meta" class="screen modal hidden">
+      <div class="panel wide">
+        <h2>Mejoras permanentes <span class="token-pill"><span id="meta-tokens">0</span> 🪙</span></h2>
+        <div id="meta-grid" class="meta-grid"></div>
+        <button class="btn btn-primary" id="btn-meta-close">Volver</button>
+      </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-stat hp">
+          <div class="bar"><div id="hp-fill"></div></div>
+          <span id="hp-text">100/100</span>
+        </div>
+        <div class="hud-stat cash">💰 <span id="cash-text">$0</span> <small id="income-text">(+$0/s)</small></div>
+        <div class="hud-stat wave">🧟 OLEADA <span id="wave-text">1</span></div>
+        <div class="hud-stat time">⏱ <span id="time-text">0:00</span></div>
+      </div>
+      <div class="hud-xp">
+        <div class="xp-bar"><div id="xp-fill"></div></div>
+        <span id="lvl-text">Lv 1</span>
+      </div>
+
+      <!-- mobile joystick -->
+      <div id="joystick" class="hidden"><div id="joystick-knob"></div></div>
+
+      <div class="hud-bottom">
+        <button class="boost-btn" id="btn-boost">🎬 x2 INGRESOS 60s</button>
+        <button class="icon-btn" id="btn-pause">⏸</button>
+      </div>
+
+      <!-- wave banner -->
+      <div id="wave-banner" class="wave-banner hidden"></div>
+    </div>
+
+    <!-- Build / store menu -->
+    <div id="build-menu" class="screen modal hidden">
+      <div class="panel">
+        <h2 id="build-title">Construir tienda</h2>
+        <div id="build-list" class="build-list"></div>
+        <button class="btn btn-ghost" id="btn-build-close">Cerrar</button>
+      </div>
+    </div>
+
+    <!-- Level up -->
+    <div id="levelup" class="screen modal hidden">
+      <div class="panel">
+        <h2>¡SUBISTE DE NIVEL!</h2>
+        <p class="levelup-sub">Elige una mejora</p>
+        <div id="card-row" class="card-row"></div>
+      </div>
+    </div>
+
+    <!-- Pause -->
+    <div id="pause" class="screen modal hidden">
+      <div class="panel">
+        <h2>Pausa</h2>
+        <button class="btn btn-primary" id="btn-resume">▶ Continuar</button>
+        <button class="btn" id="btn-pause-mute">🔊 Sonido</button>
+        <button class="btn btn-ghost" id="btn-quit">Salir al menú</button>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="gameover" class="screen modal hidden">
+      <div class="panel">
+        <h2 id="go-title">FIN DE LA PARTIDA</h2>
+        <div id="go-stats" class="go-stats"></div>
+        <div class="go-tokens">Tokens ganados: <b id="go-tokens">+0</b> 🪙</div>
+        <div class="go-buttons">
+          <button class="btn btn-primary" id="btn-revive">🎬 REVIVIR</button>
+          <button class="btn btn-primary" id="btn-double">🎬 x2 TOKENS</button>
+          <button class="btn" id="btn-retry">⟳ Reintentar</button>
+          <button class="btn btn-ghost" id="btn-menu">Menú</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- floating combat text layer is drawn on canvas -->
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+:root{
+  --bg:#0b0e18;
+  --panel:#161b2e;
+  --panel2:#1f2740;
+  --accent:#36e0c8;
+  --accent2:#ffcf3f;
+  --danger:#ff4d5e;
+  --good:#5dff8f;
+  --text:#eaf0ff;
+  --muted:#8b96b8;
+  --gun:#ff8a5c;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{
+  margin:0;padding:0;height:100%;overflow:hidden;background:#000;
+  font-family:'Trebuchet MS','Segoe UI',system-ui,sans-serif;
+  color:var(--text);user-select:none;-webkit-user-select:none;touch-action:none;
+}
+#game-root{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;}
+#game-canvas{display:block;background:var(--bg);touch-action:none;}
+
+/* ---------- Screens / overlays ---------- */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;}
+.modal{background:rgba(6,8,16,.72);backdrop-filter:blur(3px);}
+.hidden{display:none !important;}
+
+.logo{
+  font-weight:900;font-size:min(9vw,52px);line-height:1;text-align:center;letter-spacing:1px;
+  color:#fff;text-shadow:0 0 18px rgba(54,224,200,.6),0 4px 0 #06251f;
+}
+.logo span{color:var(--accent2);font-size:.62em;text-shadow:0 0 18px rgba(255,207,63,.5);}
+.menu-sub{color:var(--muted);font-size:min(4vw,17px);margin-bottom:8px;text-align:center;padding:0 16px;}
+.menu-foot{margin-top:14px;display:flex;align-items:center;gap:14px;flex-direction:column;}
+.menu-foot .hint{color:var(--muted);font-size:13px;}
+
+/* ---------- Buttons ---------- */
+.btn{
+  min-width:240px;min-height:54px;padding:0 26px;border:none;border-radius:14px;
+  background:var(--panel2);color:var(--text);font-size:18px;font-weight:700;cursor:pointer;
+  transition:transform .07s ease,filter .15s ease;box-shadow:0 4px 0 rgba(0,0,0,.4);
+}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.4);}
+.btn-primary{background:linear-gradient(180deg,var(--accent),#1ba78f);color:#04201a;text-shadow:0 1px 0 rgba(255,255,255,.3);}
+.btn-ghost{background:transparent;box-shadow:none;color:var(--muted);min-height:44px;font-size:15px;}
+.btn:disabled{filter:grayscale(.8) brightness(.6);cursor:not-allowed;}
+.icon-btn{
+  width:50px;height:50px;border-radius:12px;border:none;background:var(--panel2);
+  color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.4);
+}
+.icon-btn:active{transform:translateY(2px);}
+
+/* ---------- Loading ---------- */
+.loadbar{width:min(70vw,360px);height:14px;background:var(--panel);border-radius:8px;overflow:hidden;}
+#loadbar-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s;}
+.loadtip{color:var(--muted);font-size:14px;}
+
+/* ---------- Panels ---------- */
+.panel{
+  background:var(--panel);border:1px solid rgba(255,255,255,.06);border-radius:20px;
+  padding:24px;max-width:min(94vw,460px);width:100%;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);max-height:92vh;overflow:auto;
+}
+.panel.wide{max-width:min(96vw,720px);}
+.panel h2{margin:0 0 14px;font-size:24px;color:#fff;}
+.panel p{color:var(--muted);}
+
+.howto-list{list-style:none;padding:0;margin:0 0 18px;text-align:left;display:flex;flex-direction:column;gap:12px;}
+.howto-list li{background:var(--panel2);padding:12px 14px;border-radius:12px;font-size:15px;}
+
+/* ---------- Meta grid ---------- */
+.token-pill{font-size:16px;background:var(--panel2);padding:4px 12px;border-radius:20px;color:var(--accent2);}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+.meta-card{background:var(--panel2);border-radius:14px;padding:14px;text-align:left;border:1px solid rgba(255,255,255,.05);}
+.meta-card .mc-name{font-weight:800;font-size:15px;}
+.meta-card .mc-desc{color:var(--muted);font-size:12px;margin:6px 0 10px;min-height:30px;}
+.meta-card .mc-pips{display:flex;gap:4px;margin-bottom:8px;}
+.meta-card .pip{width:14px;height:8px;border-radius:3px;background:#39435f;}
+.meta-card .pip.on{background:var(--accent);}
+.meta-card .mc-buy{width:100%;min-width:0;min-height:38px;font-size:14px;padding:0 8px;}
+.meta-card.maxed .mc-buy{background:var(--good);color:#04201a;}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;z-index:15;pointer-events:none;}
+#hud button{pointer-events:auto;}
+.hud-top{position:absolute;top:0;left:0;right:0;display:flex;gap:8px;padding:8px 10px;flex-wrap:wrap;align-items:center;
+  background:linear-gradient(180deg,rgba(6,8,16,.7),transparent);font-weight:700;}
+.hud-stat{display:flex;align-items:center;gap:6px;font-size:15px;background:rgba(20,24,40,.55);padding:6px 10px;border-radius:10px;}
+.hud-stat small{color:var(--good);font-weight:700;}
+.hud-stat.hp{min-width:140px;}
+.hud-stat .bar{width:90px;height:12px;background:#3a1620;border-radius:6px;overflow:hidden;}
+#hp-fill{height:100%;width:100%;background:linear-gradient(90deg,#ff4d5e,#ff8a5c);transition:width .15s;}
+.hud-stat.cash{color:var(--accent2);}
+.hud-stat.wave{color:var(--danger);}
+
+.hud-xp{position:absolute;top:52px;left:10px;right:10px;display:flex;align-items:center;gap:8px;}
+.xp-bar{flex:1;height:8px;background:#1a2138;border-radius:5px;overflow:hidden;}
+#xp-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#7ce6ff);transition:width .15s;}
+.hud-xp span{font-size:13px;color:#9fb0ff;font-weight:800;}
+
+.hud-bottom{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-end;padding:12px;}
+.boost-btn{pointer-events:auto;background:linear-gradient(180deg,#ff5e9e,#b3246a);color:#fff;border:none;border-radius:14px;
+  padding:10px 16px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.4);}
+.boost-btn:active{transform:translateY(2px);}
+.boost-btn:disabled{filter:grayscale(.7) brightness(.6);}
+
+/* joystick */
+#joystick{position:absolute;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.06);
+  border:2px solid rgba(255,255,255,.12);z-index:16;pointer-events:none;}
+#joystick-knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
+  background:rgba(54,224,200,.55);border:2px solid rgba(255,255,255,.3);}
+
+/* wave banner */
+.wave-banner{position:absolute;top:30%;left:0;right:0;text-align:center;font-size:min(8vw,42px);font-weight:900;
+  color:#fff;text-shadow:0 0 20px var(--danger),0 3px 0 #400;pointer-events:none;
+  animation:bannerPop 2.2s ease forwards;}
+@keyframes bannerPop{0%{transform:scale(.4);opacity:0;}15%{transform:scale(1);opacity:1;}80%{opacity:1;}100%{opacity:0;transform:scale(1.1);}}
+
+/* ---------- Build list ---------- */
+.build-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;max-height:60vh;overflow:auto;}
+.store-row{display:flex;align-items:center;gap:12px;background:var(--panel2);border-radius:14px;padding:12px;text-align:left;
+  border:1px solid rgba(255,255,255,.05);cursor:pointer;transition:filter .12s;}
+.store-row:active{transform:scale(.99);}
+.store-row.locked{opacity:.55;}
+.store-row .s-ico{font-size:28px;width:42px;text-align:center;}
+.store-row .s-main{flex:1;}
+.store-row .s-name{font-weight:800;font-size:16px;}
+.store-row .s-desc{color:var(--muted);font-size:12px;}
+.store-row .s-cost{font-weight:900;color:var(--accent2);font-size:16px;white-space:nowrap;}
+.store-row .s-cost.cant{color:var(--danger);}
+
+/* ---------- Cards ---------- */
+.card-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.lcard{flex:1;min-width:120px;max-width:160px;background:var(--panel2);border-radius:16px;padding:18px 10px;cursor:pointer;
+  border:2px solid rgba(255,255,255,.06);transition:transform .1s,border-color .1s;text-align:center;}
+.lcard:hover{transform:translateY(-4px);border-color:var(--accent);}
+.lcard .lc-ico{font-size:38px;}
+.lcard .lc-name{font-weight:900;font-size:15px;margin-top:8px;}
+.lcard .lc-desc{color:var(--muted);font-size:12px;margin-top:4px;}
+.lcard.rare{border-color:var(--accent2);box-shadow:0 0 18px rgba(255,207,63,.3);}
+.levelup-sub{margin-top:-6px;margin-bottom:16px;}
+
+/* ---------- Game over ---------- */
+.go-stats{color:var(--muted);font-size:15px;margin-bottom:10px;line-height:1.6;}
+.go-tokens{font-size:18px;margin-bottom:16px;}
+.go-tokens b{color:var(--accent2);}
+.go-buttons{display:flex;flex-direction:column;gap:10px;align-items:center;}
+.go-buttons .btn{width:100%;}
+
+@media (max-width:520px){
+  .btn{min-width:200px;font-size:17px;}
+  .hud-stat{font-size:13px;padding:5px 8px;}
+}
