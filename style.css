@@ -173,3 +173,23 @@ html,body{
   .btn{min-width:200px;font-size:17px;}
   .hud-stat{font-size:13px;padding:5px 8px;}
 }
+
+/* Rotate-to-landscape overlay (mobile portrait) */
+#rotate{position:fixed;inset:0;z-index:200;background:#0b0e18;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;text-align:center;padding:28px;color:var(--text);}
+#rotate .phone{font-size:72px;animation:rotateHint 1.8s ease-in-out infinite;}
+#rotate h2{font-size:26px;margin:0;color:#fff;}
+#rotate p{color:var(--muted);font-size:16px;line-height:1.5;margin:0;}
+@keyframes rotateHint{0%,38%{transform:rotate(0deg);}58%,100%{transform:rotate(-90deg);}}
+
+/* shrink HUD on short landscape phones so the top stack always fits */
+@media (max-height:430px){
+  .hud-top{padding:5px 8px;gap:6px;}
+  .hud-stat{font-size:12px;padding:4px 7px;}
+  .hud-stat.hp .bar{width:70px;}
+  .hud-xp{top:44px;}
+  .hud-fame{top:58px;}
+  #toasts{top:80px;}
+  .icon-btn{width:44px;height:44px;font-size:19px;}
+  .boost-btn{padding:8px 12px;font-size:12px;}
+}

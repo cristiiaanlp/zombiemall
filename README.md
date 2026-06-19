@@ -31,10 +31,19 @@ el juego **funciona igual**: los anuncios recompensados conceden la recompensa d
 en modo standalone para que puedas probar revive / x2 / boost.
 
 ## Controles
-- **Mover:** `WASD` / flechas (escritorio) · **joystick táctil** (arrastra en móvil).
+- **Mover:** `WASD` / flechas (escritorio) · **joystick táctil** (toca y arrastra en cualquier
+  parte del lienzo en móvil; aparece donde pones el dedo).
 - **Disparo:** automático al zombi más cercano.
 - **Construir/mejorar:** clic/toque en una **parcela** (las vacías parpadean).
+- **Comerciar / cuarentena:** toca el puesto del comerciante o a un aliado superviviente.
 - **Pausa:** `Esc` / `P` / botón ⏸ (también pausa al perder el foco de la pestaña).
+
+## Móvil 📱
+- **Táctil completo**: joystick virtual + toques para construir, comerciar y poner en cuarentena.
+- **Horizontal**: el arena es 16:9. En **vertical** aparece un aviso "gira el dispositivo" y el
+  juego se congela hasta volver a horizontal (el lienzo se re-ajusta al rotar y al aparecer/ocultar
+  la barra del navegador). HUD compacto en pantallas cortas.
+- Zoom/scroll desactivados (`touch-action:none`, viewport bloqueado) para que no estorben.
 
 ## Bucle de juego
 Mata zombis → gana `$` y XP → construye/mejora tiendas (ingresos + buffs) → sube de nivel

@@ -9,7 +9,8 @@ function makeEl(id){
   const el = {
     id, _cls:new Set(), style:{}, dataset:{}, children,
     textContent:'', innerHTML:'', _onclick:null, _blur:null,
-    classList:{ add(c){el._cls.add(c);}, remove(c){el._cls.delete(c);}, contains(c){return el._cls.has(c);} },
+    classList:{ add(c){el._cls.add(c);}, remove(c){el._cls.delete(c);}, contains(c){return el._cls.has(c);},
+      toggle(c,f){ const on=(f===undefined)?!el._cls.has(c):f; if(on) el._cls.add(c); else el._cls.delete(c); return on; } },
     set onclick(f){el._onclick=f;}, get onclick(){return el._onclick;},
     set onblur(f){el._blur=f;}, get onblur(){return el._blur;},
     appendChild(c){children.push(c); c.parentNode=el; return c;},

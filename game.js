@@ -179,8 +179,21 @@ function resize(){
   canvas.style.top = offY + 'px';
   canvas.width = Math.floor(cw * dpr);
   canvas.height = Math.floor(ch * dpr);
+  checkOrientation();
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', ()=>{ setTimeout(()=>{ resize(); }, 250); });
+if(window.visualViewport){ window.visualViewport.addEventListener('resize', resize); }
+
+// On touch devices the 16:9 arena is unplayable in portrait -> ask to rotate.
+function isPortrait(){ return window.innerHeight > window.innerWidth; }
+function checkOrientation(){
+  const block = isTouch && isPortrait();
+  Game.rotateBlock = block;
+  const el = document.getElementById('rotate');
+  if(el) el.classList.toggle('hidden', !block);
+  if(block) resetJoystick();
+}
 
 // convert screen (client) coords to logical arena coords
 function screenToWorld(clientX, clientY){
@@ -426,6 +439,11 @@ function pointerMove(clientX, clientY, id){
 }
 function pointerUp(id){
   if(Input.joy.id===id){ Input.joy.active=false; Input.joy.dx=0; Input.joy.dy=0; joystickEl.classList.add('hidden'); }
+}
+// fully cancel the virtual joystick (used when a menu opens or we rotate)
+function resetJoystick(){
+  Input.joy.active=false; Input.joy.dx=0; Input.joy.dy=0; Input.joy.id=-1;
+  if(joystickEl) joystickEl.classList.add('hidden');
 }
 
 canvas.addEventListener('mousedown', e=>pointerDown(e.clientX,e.clientY,'mouse'));
@@ -1237,7 +1255,7 @@ function loop(ts){
   if(!Game.last) Game.last=ts;
   let dt=(ts-Game.last)/1000; Game.last=ts;
   if(dt>0.05) dt=0.05; // clamp
-  if(Game.state==='playing') update(dt);
+  if(Game.state==='playing' && !Game.rotateBlock) update(dt);
   if(['playing','paused','levelup','build','gameover','ad','trader'].includes(Game.state)) render();
 }
 
@@ -1335,6 +1353,7 @@ function storeCost(def, plot){
 function openBuild(plot){
   Game.activePlot=plot;
   Game.state='build';
+  resetJoystick();
   const list=$('build-list'); list.innerHTML='';
   $('build-title').textContent = plot.store ? 'Mejorar tienda' : 'Construir tienda';
 
@@ -1386,6 +1405,7 @@ function closeBuild(){ UI.hide('build-menu'); if(Game.state==='build') Game.stat
 function openTrader(){
   if(!Game.trader) return;
   Game.state='trader';
+  resetJoystick();
   const list=$('trader-list'); list.innerHTML='';
   Game.trader.deals.forEach(d=>{
     const afford = Game.cash>=d.cost && !d.sold;
@@ -1405,6 +1425,7 @@ function closeTrader(){ UI.hide('trader'); if(Game.state==='trader') Game.state=
 --------------------------------------------------------------------------- */
 function openLevelUp(){
   Game.state='levelup';
+  resetJoystick();
   Audio2.levelup();
   drawCards();
   UI.show('levelup');
@@ -1438,7 +1459,7 @@ function drawCards(){
 /* ---------------------------------------------------------------------------
    18. PAUSE
 --------------------------------------------------------------------------- */
-function pauseGame(){ if(Game.state!=='playing') return; Game.state='paused'; CG.gameplayStop(); UI.show('pause'); }
+function pauseGame(){ if(Game.state!=='playing') return; Game.state='paused'; resetJoystick(); CG.gameplayStop(); UI.show('pause'); }
 function resumeGame(){ if(Game.state!=='paused') return; UI.hide('pause'); Game.state='playing'; CG.gameplayStart(); }
 window.addEventListener('blur', ()=>{ if(Game.state==='playing') pauseGame(); });
 
