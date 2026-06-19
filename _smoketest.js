@@ -54,7 +54,8 @@ const sandbox = {
   setInterval:()=>1, clearInterval:()=>{},
   requestAnimationFrame:()=>0,           // prevent real loop
   localStorage:{ _d:{}, getItem(k){return this._d[k]||null;}, setItem(k,v){this._d[k]=v;}, removeItem(k){delete this._d[k];} },
-  navigator:{ maxTouchPoints:0 },
+  navigator:{ maxTouchPoints:0, userAgent:'node-test', platform:'test' },
+  location:{ hash:'', href:'http://localhost/' },
   AudioContext: function(){ return { state:'running', currentTime:0, resume(){}, destination:{},
     createOscillator(){ return {type:'',frequency:{value:0},connect(){},start(){},stop(){}}; },
     createGain(){ return {gain:{value:0,setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}; } }; },

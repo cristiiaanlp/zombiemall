@@ -99,31 +99,56 @@ const Save = {
    2. CRAZYGAMES SDK WRAPPER (graceful no-op fallback)
 --------------------------------------------------------------------------- */
 const CG = {
-  sdk:null, ready:false,
+  sdk:null, ready:false, env:'disabled', busy:false, lastMidgame:0,
   async init(){
     try{
       if(window.CrazyGames && window.CrazyGames.SDK){
         this.sdk = window.CrazyGames.SDK;
         await this.sdk.init();
-        this.ready = true;
+        try{ this.env = this.sdk.environment || 'crazygames'; }catch(e){ this.env='crazygames'; }
+        this.ready = (this.env !== 'disabled');
       }
     }catch(e){ this.ready=false; }
   },
+  loadingStart(){ try{ if(this.ready) this.sdk.game.loadingStart(); }catch(e){} },
+  loadingStop(){ try{ if(this.ready) this.sdk.game.loadingStop(); }catch(e){} },
   gameplayStart(){ try{ if(this.ready) this.sdk.game.gameplayStart(); }catch(e){} },
   gameplayStop(){ try{ if(this.ready) this.sdk.game.gameplayStop(); }catch(e){} },
   happytime(){ try{ if(this.ready) this.sdk.game.happytime(); }catch(e){} },
-  // rewarded ad: resolves true if reward should be granted
+  now(){ return Date.now()/1000; },
+
+  // rewarded ad: resolves true only if the reward should be granted (never on error)
   rewardedAd(){
     return new Promise(resolve=>{
-      if(!this.ready){ resolve(true); return; }   // no SDK -> grant in dev/standalone
+      if(this.busy){ resolve(false); return; }
+      if(!this.ready){ resolve(true); return; }   // local/standalone -> grant for testing
+      this.busy=true; Game.pauseForAd(true);
+      const done=(ok)=>{ this.busy=false; Game.pauseForAd(false); resolve(ok); };
       try{
-        Game.pauseForAd(true);
         this.sdk.ad.requestAd('rewarded',{
-          adFinished:()=>{ Game.pauseForAd(false); resolve(true); },
-          adError:()=>{ Game.pauseForAd(false); resolve(false); },
           adStarted:()=>{},
+          adFinished:()=>{ this.lastMidgame=this.now(); done(true); },  // shared ad cooldown
+          adError:()=>done(false),
         });
-      }catch(e){ Game.pauseForAd(false); resolve(false); }
+      }catch(e){ done(false); }
+    });
+  },
+
+  // midgame ad: shown only at natural breaks (between runs). Self-gated to >=3 min;
+  // SDK also enforces frequency. Always resolves; never blocks progress.
+  midgame(){
+    return new Promise(resolve=>{
+      if(!this.ready || this.busy){ resolve(); return; }
+      if(this.now() - this.lastMidgame < 180){ resolve(); return; }
+      this.busy=true; Game.pauseForAd(true);
+      const done=()=>{ this.busy=false; Game.pauseForAd(false); resolve(); };
+      try{
+        this.sdk.ad.requestAd('midgame',{
+          adStarted:()=>{},
+          adFinished:()=>{ this.lastMidgame=this.now(); done(); },
+          adError:()=>done(),
+        });
+      }catch(e){ done(); }
     });
   },
 };
@@ -132,11 +157,12 @@ const CG = {
    3. AUDIO (tiny WebAudio synth, fully mutable)
 --------------------------------------------------------------------------- */
 const Audio2 = {
-  ctx:null, muted:false,
+  ctx:null, muted:false, _adMuted:false,
   init(){ try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} this.muted = Save.data.muted; },
-  resume(){ if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); },
+  resume(){ try{ if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); }catch(e){} },
+  adMute(on){ this._adMuted=on; },   // CrazyGames: mute audio while an ad is showing
   blip(freq,dur,type,vol){
-    if(this.muted || !this.ctx) return;
+    if(this.muted || this._adMuted || !this.ctx) return;
     try{
       const o=this.ctx.createOscillator(), g=this.ctx.createGain();
       o.type=type||'square'; o.frequency.value=freq;
@@ -166,8 +192,11 @@ const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 let scale = 1, offX = 0, offY = 0, dpr = 1;
 
+const _iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+const _lowMem = (typeof navigator.deviceMemory==='number' && navigator.deviceMemory<=4);
 function resize(){
-  dpr = Math.min(window.devicePixelRatio||1, 2);
+  // CrazyGames: use DPR=1 on iOS / low-memory devices, native (capped) elsewhere
+  dpr = (_iOS || _lowMem) ? 1 : Math.min(window.devicePixelRatio||1, 2);
   const vw = window.innerWidth, vh = window.innerHeight;
   scale = Math.min(vw / W, vh / H);
   const cw = W * scale, ch = H * scale;
@@ -237,8 +266,9 @@ const Game = {
   buildDiscount:0, tut:{},
 
   pauseForAd(on){
-    if(on){ this._prevState=this.state; this.state='ad'; CG.gameplayStop(); }
-    else { this.state=this._prevState||'playing'; if(this.state==='playing') CG.gameplayStart(); }
+    if(on){ this._prevState=this.state; this.state='ad'; Audio2.adMute(true); CG.gameplayStop(); }
+    else { this.state=this._prevState||'playing'; Audio2.adMute(false); Audio2.resume();
+           if(this.state==='playing') CG.gameplayStart(); }
   },
 };
 
@@ -1486,6 +1516,9 @@ function drawCards(){
 function pauseGame(){ if(Game.state!=='playing') return; Game.state='paused'; resetJoystick(); CG.gameplayStop(); UI.show('pause'); }
 function resumeGame(){ if(Game.state!=='paused') return; UI.hide('pause'); Game.state='playing'; CG.gameplayStart(); }
 window.addEventListener('blur', ()=>{ if(Game.state==='playing') pauseGame(); });
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden && Game.state==='playing') pauseGame(); });
+// iOS requires resuming the AudioContext on a user gesture after any interruption
+['pointerdown','keydown','touchstart'].forEach(ev=>window.addEventListener(ev, ()=>Audio2.resume(), {passive:true}));
 
 /* ---------------------------------------------------------------------------
    19. WIRE UP BUTTONS
@@ -1504,7 +1537,7 @@ function bindUI(){
   $('btn-trader-close').onclick=closeTrader;
   $('btn-pause').onclick=pauseGame;
   $('btn-resume').onclick=resumeGame;
-  $('btn-quit').onclick=()=>{ UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens(); CG.gameplayStop(); };
+  $('btn-quit').onclick=async()=>{ CG.gameplayStop(); await CG.midgame(); UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens(); };
 
   $('btn-boost').onclick=async()=>{
     if(Game.boostTimer>0) return;
@@ -1524,8 +1557,8 @@ function bindUI(){
       $('go-tokens').textContent='+'+(Game._tokens*2)+' (x2)';
       $('btn-double').dataset.done='1'; $('btn-double').disabled=true; CG.happytime(); }
   };
-  $('btn-retry').onclick=()=>startRun();
-  $('btn-menu').onclick=()=>{ UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens(); };
+  $('btn-retry').onclick=async()=>{ await CG.midgame(); startRun(); };
+  $('btn-menu').onclick=async()=>{ await CG.midgame(); UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens(); };
 }
 
 /* ---------------------------------------------------------------------------
@@ -1539,12 +1572,20 @@ async function boot(){
   if(Save.data.muted) $('btn-mute').textContent='🔇';
   isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
 
-  // fake-but-real load progress while SDK initializes
+  // init SDK first (async), then bracket asset loading with loadingStart/Stop
+  await CG.init();
+  CG.loadingStart();
+
+  // load progress bar while we (lightly) finish loading
   let prog=0;
   const fill=$('loadbar-fill');
   const iv=setInterval(()=>{ prog=Math.min(90,prog+8+Math.random()*12); fill.style.width=prog+'%'; },90);
-  await CG.init();
+
+  // ensure custom fonts are ready so first paint isn't a flash of fallback
+  try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
+
   clearInterval(iv); fill.style.width='100%';
+  CG.loadingStop();
 
   setTimeout(()=>{
     UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens();

@@ -81,34 +81,38 @@ Simula DOM + Canvas, arranca una partida y ejecuta ~7.200 ticks con construccion
 subidas de nivel, oleadas de jefe y reinicios; falla si hay errores de runtime o si el
 combate no mata zombis. **Borra `_smoketest.js` antes de empacar para producción.**
 
-## Integración CrazyGames (ya hecha)
-`game.js` incluye el wrapper `CG` que llama, si el SDK está disponible:
-- `SDK.init()` en el arranque.
-- `game.gameplayStart()` / `gameplayStop()` al empezar/pausar/terminar partida.
-- `ad.requestAd('rewarded', …)` para **revivir**, **x2 tokens** y **x2 ingresos 60s**.
-- `game.happytime()` en momentos positivos.
-- Mute persistente y pausa automática durante anuncios y al perder el foco.
+## Integración CrazyGames SDK v3 (auditada con la documentación oficial)
+`game.js` incluye el wrapper `CG` que, con el SDK disponible, llama exactamente:
+- `await SDK.init()` y lectura de `SDK.environment` (`local`/`crazygames`/`disabled`).
+- `SDK.game.loadingStart()` → `loadingStop()` envolviendo la carga (mide el tamaño inicial).
+- `SDK.game.gameplayStart()` / `gameplayStop()` al empezar/reanudar y al pausar/menú/morir.
+- **Anuncios recompensados** `SDK.ad.requestAd('rewarded', …)`: revivir (1/partida con timer),
+  x2 tokens, x2 ingresos. **Nunca** recompensa en `adError`. Botones con alternativa no-ad.
+- **Anuncios midgame** `SDK.ad.requestAd('midgame', …)` solo en transiciones (reintentar /
+  volver al menú), con **cooldown propio de 3 min** además del que aplica el SDK.
+- Durante **cualquier** anuncio: se **silencia el audio** (`adMute`) y se **pausa el juego**;
+  se restaura solo al `adFinished`/`adError` (no al pedirlo). Reentradas bloqueadas (`busy`).
+- `SDK.game.happytime()` en hitos positivos (con moderación).
 
-Todo degrada con elegancia si el SDK no está (try/catch + fallback).
+Todo degrada con elegancia si el SDK no está (try/catch + fallback para test local).
 
-## Checklist de aceptación CrazyGames
-- [x] HTML5 puro, sin plugins, funciona en iframe.
-- [x] Carga rápida (sin assets pesados). Red externa: solo el **SDK de CrazyGames** y
-      **Google Fonts** (Bungee + Rajdhani, cosméticas, con *fallback* a fuentes del sistema
-      si están bloqueadas/offline). Para 100% self-contained, descarga los `.woff2` y
-      cámbialos por `@font-face` locales en `style.css`.
-- [x] Responsive a cualquier aspecto; **móvil y escritorio**.
-- [x] Pantalla de carga con progreso; sin estados rotos.
-- [x] **Mute** y pausa disponibles; pausa en blur y en anuncios.
-- [x] SDK + anuncios recompensados integrados (no intersticiales abusivos).
-- [x] `localStorage` solo para guardado (permitido).
-- [x] Sin enlaces externos ni contenido prohibido.
+## Checklist de aceptación CrazyGames (verificado)
+- [x] HTML5 puro, sin plugins, funciona en iframe; **rutas relativas** (sin absolutas).
+- [x] **Cero peticiones externas** salvo el SDK: fuentes **auto-alojadas** en `fonts/*.woff2`.
+- [x] Tamaño mínimo (KB), muy por debajo de los límites (50 MB inicial / 250 MB total).
+- [x] Responsive a cualquier aspecto 16:9; **móvil y escritorio**; **DPR=1** en iOS/baja memoria.
+- [x] Soporta **ratón, teclado y táctil**; horizontal obligado con aviso de rotación en vertical.
+- [x] `loadingStart/Stop` + `gameplayStart/Stop` correctos; carga con progreso sin estados rotos.
+- [x] **Mute** persistente; pausa en `blur` y `visibilitychange`; **AudioContext** se reanuda por gesto (iOS).
+- [x] Anuncios solo vía SDK, en transiciones, con mute+pausa y cooldown; el juego **funciona sin ads** (Basic Launch).
+- [x] `localStorage` solo para guardado (permitido); sin cookies de tracking ni SDKs de terceros.
+- [x] Sin enlaces externos ni cross-promo en el juego; sin contenido prohibido.
 - [x] Funciona **offline** tras la carga (sin dependencia dura del SDK).
 
 ## Empaquetado para subir
-1. Borra `_smoketest.js` y `GDD.md`/`README.md` si quieres un build mínimo (opcionales).
-2. Comprime `index.html`, `style.css`, `game.js` en un `.zip`.
-3. Súbelo al portal de desarrolladores de CrazyGames.
+1. Borra `_smoketest.js` (solo desarrollo). `GDD.md`/`README.md` son opcionales.
+2. Comprime `index.html`, `style.css`, `game.js` y la carpeta `fonts/` en un `.zip`.
+3. Súbelo al portal de desarrolladores de CrazyGames (pruébalo antes en `crazygames.com/preview`).
 
 ## Próximos pasos sugeridos (ver GDD §15)
 Más tipos de enemigo y supervivientes con IA, recompensa diaria, logros, varios héroes y
