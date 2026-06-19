@@ -21,44 +21,47 @@
     <div id="loading" class="screen">
       <div class="logo">ZOMBIE MALL<br /><span>TYCOON SURVIVOR</span></div>
       <div class="loadbar"><div id="loadbar-fill"></div></div>
-      <div class="loadtip">Cargando el centro comercial…</div>
+      <div class="loadtip" data-i18n="loading">Cargando…</div>
     </div>
 
     <!-- Main menu -->
     <div id="menu" class="screen hidden">
       <div class="logo">ZOMBIE MALL<br /><span>TYCOON SURVIVOR</span></div>
-      <div class="menu-sub">Sobrevive mientras construyes tu centro comercial.</div>
-      <button class="btn btn-primary" id="btn-play">▶ JUGAR</button>
-      <button class="btn" id="btn-meta">🛠 MEJORAS · <span id="menu-tokens">0</span> 🪙</button>
-      <button class="btn btn-ghost" id="btn-howto">❔ Cómo se juega</button>
+      <div class="menu-sub" data-i18n="tagline">…</div>
+      <button class="btn btn-primary" id="btn-play"><span class="g">▶</span> <span data-i18n="play">PLAY</span></button>
+      <button class="btn" id="btn-meta"><span class="stat-ico" data-ico="build" data-size="20"></span> <span data-i18n="upgrades">UPGRADES</span> · <span id="menu-tokens">0</span> <span class="stat-ico" data-ico="token" data-size="16"></span></button>
+      <button class="btn btn-ghost" id="btn-howto"><span data-i18n="howtoBtn">How to play</span></button>
       <div class="menu-foot">
-        <button class="icon-btn" id="btn-mute">🔊</button>
-        <span class="hint">WASD / flechas o joystick · disparo automático</span>
+        <div class="foot-row">
+          <button class="icon-btn" id="btn-mute">🔊</button>
+          <button class="icon-btn" id="btn-lang">ES</button>
+        </div>
+        <span class="hint" data-i18n="hint">…</span>
       </div>
     </div>
 
     <!-- How to play -->
     <div id="howto" class="screen modal hidden">
       <div class="panel">
-        <h2>Cómo se juega</h2>
+        <h2 data-i18n="howtoTitle">How to play</h2>
         <ul class="howto-list">
-          <li>🕹️ <b>Muévete</b> con WASD / flechas (o el joystick en móvil).</li>
-          <li>🔫 Tu arma <b>dispara sola</b> al zombi más cercano.</li>
-          <li>🏪 Toca una <b>parcela brillante</b> para construir tiendas.</li>
-          <li>💰 Las tiendas dan <b>ingresos pasivos</b> y <b>bonus de combate</b>.</li>
-          <li>⭐ Sube de nivel y elige <b>cartas de mejora</b>.</li>
-          <li>🧟 Sobrevive oleadas cada vez más duras. ¡Jefe cada 5 oleadas!</li>
+          <li><span class="li-ico" data-ico="speed" data-size="22"></span><span data-i18n="howto1"></span></li>
+          <li><span class="li-ico" data-ico="gun" data-size="22"></span><span data-i18n="howto2"></span></li>
+          <li><span class="li-ico" data-ico="build" data-size="22"></span><span data-i18n="howto3"></span></li>
+          <li><span class="li-ico" data-ico="cash" data-size="22"></span><span data-i18n="howto4"></span></li>
+          <li><span class="li-ico" data-ico="star" data-size="22"></span><span data-i18n="howto5"></span></li>
+          <li><span class="li-ico" data-ico="skull" data-size="22"></span><span data-i18n="howto6"></span></li>
         </ul>
-        <button class="btn btn-primary" id="btn-howto-close">¡Entendido!</button>
+        <button class="btn btn-primary" id="btn-howto-close" data-i18n="gotIt">Got it!</button>
       </div>
     </div>
 
     <!-- Meta upgrades -->
     <div id="meta" class="screen modal hidden">
       <div class="panel wide">
-        <h2>Mejoras permanentes <span class="token-pill"><span id="meta-tokens">0</span> 🪙</span></h2>
+        <h2><span data-i18n="metaTitle">Permanent upgrades</span> <span class="token-pill"><span id="meta-tokens">0</span> <span class="stat-ico" data-ico="token" data-size="16"></span></span></h2>
         <div id="meta-grid" class="meta-grid"></div>
-        <button class="btn btn-primary" id="btn-meta-close">Volver</button>
+        <button class="btn btn-primary" id="btn-meta-close" data-i18n="back">Back</button>
       </div>
     </div>
 
@@ -69,9 +72,9 @@
           <div class="bar"><div id="hp-fill"></div></div>
           <span id="hp-text">100/100</span>
         </div>
-        <div class="hud-stat cash">💰 <span id="cash-text">$0</span> <small id="income-text">(+$0/s)</small></div>
-        <div class="hud-stat wave">🧟 OLEADA <span id="wave-text">1</span></div>
-        <div class="hud-stat time">⏱ <span id="time-text">0:00</span></div>
+        <div class="hud-stat cash"><span class="stat-ico" data-ico="cash"></span> <span id="cash-text">$0</span> <small id="income-text">(+$0/s)</small></div>
+        <div class="hud-stat wave"><span class="stat-ico" data-ico="skull"></span> <span data-i18n="waveLabel">WAVE</span> <span id="wave-text">1</span></div>
+        <div class="hud-stat time"><span class="stat-ico" data-ico="clock"></span> <span id="time-text">0:00</span></div>
       </div>
       <div class="hud-xp">
         <div class="xp-bar"><div id="xp-fill"></div></div>
@@ -80,9 +83,9 @@
 
       <!-- Refuge Fame -->
       <div class="hud-fame">
-        <span id="fame-tier">🕯️ Escondite</span>
+        <span id="fame-tier">Hideout</span>
         <div class="fame-bar"><div id="fame-fill"></div></div>
-        <span class="surv">🙋 <span id="surv-text">0</span></span>
+        <span class="surv"><span class="stat-ico" data-ico="surv"></span> <span id="surv-text">0</span></span>
       </div>
 
       <!-- event toasts -->
@@ -92,7 +95,7 @@
       <div id="joystick" class="hidden"><div id="joystick-knob"></div></div>
 
       <div class="hud-bottom">
-        <button class="boost-btn" id="btn-boost">🎬 x2 INGRESOS 60s</button>
+        <button class="boost-btn" id="btn-boost"><span class="stat-ico" data-ico="boost" data-size="16"></span> <span id="boost-label">x2 INCOME 60s</span></button>
         <button class="icon-btn" id="btn-pause">⏸</button>
       </div>
 
@@ -103,27 +106,27 @@
     <!-- Build / store menu -->
     <div id="build-menu" class="screen modal hidden">
       <div class="panel">
-        <h2 id="build-title">Construir tienda</h2>
+        <h2 id="build-title">Build store</h2>
         <div id="build-list" class="build-list"></div>
-        <button class="btn btn-ghost" id="btn-build-close">Cerrar</button>
+        <button class="btn btn-ghost" id="btn-build-close" data-i18n="close">Close</button>
       </div>
     </div>
 
     <!-- Trader -->
     <div id="trader" class="screen modal hidden">
       <div class="panel">
-        <h2>🚚 Comerciante del refugio</h2>
-        <p class="levelup-sub">Ofertas por tiempo limitado — atraído por tu fama</p>
+        <h2><span class="stat-ico" data-ico="trader" data-size="24"></span> <span data-i18n="traderTitle">Refuge trader</span></h2>
+        <p class="levelup-sub" data-i18n="traderSub">…</p>
         <div id="trader-list" class="build-list"></div>
-        <button class="btn btn-ghost" id="btn-trader-close">Cerrar</button>
+        <button class="btn btn-ghost" id="btn-trader-close" data-i18n="close">Close</button>
       </div>
     </div>
 
     <!-- Level up -->
     <div id="levelup" class="screen modal hidden">
       <div class="panel">
-        <h2>¡SUBISTE DE NIVEL!</h2>
-        <p class="levelup-sub">Elige una mejora</p>
+        <h2 data-i18n="levelTitle">LEVEL UP!</h2>
+        <p class="levelup-sub" data-i18n="chooseUpg">Choose an upgrade</p>
         <div id="card-row" class="card-row"></div>
       </div>
     </div>
@@ -131,24 +134,24 @@
     <!-- Pause -->
     <div id="pause" class="screen modal hidden">
       <div class="panel">
-        <h2>Pausa</h2>
-        <button class="btn btn-primary" id="btn-resume">▶ Continuar</button>
-        <button class="btn" id="btn-pause-mute">🔊 Sonido</button>
-        <button class="btn btn-ghost" id="btn-quit">Salir al menú</button>
+        <h2 data-i18n="pauseTitle">Paused</h2>
+        <button class="btn btn-primary" id="btn-resume"><span class="g">▶</span> <span data-i18n="resume">Resume</span></button>
+        <button class="btn" id="btn-pause-mute"><span id="pmute-ico">🔊</span> <span data-i18n="sound">Sound</span></button>
+        <button class="btn btn-ghost" id="btn-quit" data-i18n="quitMenu">Quit to menu</button>
       </div>
     </div>
 
     <!-- Game over -->
     <div id="gameover" class="screen modal hidden">
       <div class="panel">
-        <h2 id="go-title">FIN DE LA PARTIDA</h2>
+        <h2 id="go-title">GAME OVER</h2>
         <div id="go-stats" class="go-stats"></div>
-        <div class="go-tokens">Tokens ganados: <b id="go-tokens">+0</b> 🪙</div>
+        <div class="go-tokens"><span data-i18n="tokensEarned">Tokens earned:</span> <b id="go-tokens">+0</b> <span class="stat-ico" data-ico="token" data-size="16"></span></div>
         <div class="go-buttons">
-          <button class="btn btn-primary" id="btn-revive">🎬 REVIVIR</button>
-          <button class="btn btn-primary" id="btn-double">🎬 x2 TOKENS</button>
-          <button class="btn" id="btn-retry">⟳ Reintentar</button>
-          <button class="btn btn-ghost" id="btn-menu">Menú</button>
+          <button class="btn btn-primary" id="btn-revive"><span class="stat-ico" data-ico="boost" data-size="16"></span> <span data-i18n="revive">REVIVE</span></button>
+          <button class="btn btn-primary" id="btn-double"><span class="stat-ico" data-ico="boost" data-size="16"></span> <span data-i18n="x2tokens">x2 TOKENS</span></button>
+          <button class="btn" id="btn-retry"><span class="g">⟳</span> <span data-i18n="retry">Retry</span></button>
+          <button class="btn btn-ghost" id="btn-menu" data-i18n="menu">Menu</button>
         </div>
       </div>
     </div>
@@ -158,8 +161,8 @@
     <!-- Rotate-to-landscape (mobile portrait) -->
     <div id="rotate" class="hidden">
       <div class="phone">📱</div>
-      <h2>Gira tu dispositivo</h2>
-      <p>Este juego se juega en horizontal.<br/>Pon el móvil de lado para empezar. 🔄</p>
+      <h2 data-i18n="rotateTitle">Rotate your device</h2>
+      <p data-i18n="rotateBody">…</p>
     </div>
   </div>
 

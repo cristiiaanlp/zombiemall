@@ -14,18 +14,18 @@ const SAVE_KEY = 'zmts_save_v1';
 
 // Store definitions (see GDD §5). buff is applied globally and scales per level.
 const STORES = [
-  { id:'cafe',    name:'Cafetería',    ico:'☕', cost:20,   income:2, buff:null,                       desc:'Ingresos puros baratos.' },
-  { id:'gun',     name:'Armería',      ico:'🔫', cost:40,   income:1, buff:{k:'dmg',   v:0.12},        desc:'+12% daño de arma.' },
-  { id:'pharma',  name:'Farmacia',     ico:'💊', cost:80,   income:1, buff:{k:'heals', v:1},           desc:'Cura al construir + sana 1 HP/s.' },
-  { id:'rest',    name:'Restaurante',  ico:'🍔', cost:120,  income:3, buff:{k:'regen', v:0.6},         desc:'+0.6 HP/s regeneración.' },
-  { id:'gym',     name:'Gimnasio',     ico:'🏋️', cost:100,  income:1, buff:{k:'speed', v:0.08},        desc:'+8% velocidad.' },
-  { id:'market',  name:'Supermercado', ico:'🛒', cost:200,  income:5, buff:{k:'cash',  v:0.06},        desc:'+6% ingresos por kill.' },
-  { id:'security',name:'Seguridad',    ico:'🛡️', cost:250,  income:1, buff:{k:'turret',v:1},           desc:'Despliega una torreta automática.' },
-  { id:'elec',    name:'Electrónica',  ico:'⚡', cost:180,  income:2, buff:{k:'rate',  v:0.10},        desc:'+10% cadencia de disparo.' },
-  { id:'sports',  name:'Deportes',     ico:'🎯', cost:500,  income:2, buff:{k:'proj',  v:0.5},         desc:'+1 proyectil cada 2 niveles.' },
-  { id:'armor',   name:'Outfitter',    ico:'🦺', cost:350,  income:2, buff:{k:'maxhp', v:15},          desc:'+15 vida máxima por nivel.' },
-  { id:'jewel',   name:'Joyería',      ico:'💎', cost:400,  income:8, buff:{k:'xp',    v:0.05},         desc:'+5% XP, gran ingreso.' },
-  { id:'heli',    name:'Helipuerto',   ico:'🚁', cost:1500, income:15,buff:{k:'airstrike',v:1},        desc:'Ataque aéreo cada 25s.' },
+  { id:'cafe',    ico:'cafe',     cost:20,   income:2, buff:null,                name:{es:'Cafetería',en:'Café'},          desc:{es:'Ingresos puros baratos.',en:'Cheap pure income.'} },
+  { id:'gun',     ico:'gun',      cost:40,   income:1, buff:{k:'dmg',   v:0.12}, name:{es:'Armería',en:'Gun Shop'},              desc:{es:'+12% daño de arma.',en:'+12% weapon damage.'} },
+  { id:'pharma',  ico:'pharma',   cost:80,   income:1, buff:{k:'heals', v:1},    name:{es:'Farmacia',en:'Pharmacy'},             desc:{es:'Cura al construir + 1 HP/s.',en:'Heal on build + 1 HP/s.'} },
+  { id:'rest',    ico:'rest',     cost:120,  income:3, buff:{k:'regen', v:0.6},  name:{es:'Restaurante',en:'Restaurant'},        desc:{es:'+0.6 HP/s regeneración.',en:'+0.6 HP/s regen.'} },
+  { id:'gym',     ico:'gym',      cost:100,  income:1, buff:{k:'speed', v:0.08}, name:{es:'Gimnasio',en:'Gym'},                  desc:{es:'+8% velocidad.',en:'+8% move speed.'} },
+  { id:'market',  ico:'market',   cost:200,  income:5, buff:{k:'cash',  v:0.06}, name:{es:'Supermercado',en:'Supermarket'},      desc:{es:'+6% ingresos por kill.',en:'+6% cash per kill.'} },
+  { id:'security',ico:'security', cost:250,  income:1, buff:{k:'turret',v:1},    name:{es:'Seguridad',en:'Security'},            desc:{es:'Despliega una torreta.',en:'Deploys an auto-turret.'} },
+  { id:'elec',    ico:'elec',     cost:180,  income:2, buff:{k:'rate',  v:0.10}, name:{es:'Electrónica',en:'Electronics'},       desc:{es:'+10% cadencia de disparo.',en:'+10% fire rate.'} },
+  { id:'sports',  ico:'sports',   cost:500,  income:2, buff:{k:'proj',  v:0.5},  name:{es:'Deportes',en:'Sports Store'},         desc:{es:'+1 proyectil cada 2 niv.',en:'+1 projectile every 2 lvls.'} },
+  { id:'armor',   ico:'armor',    cost:350,  income:2, buff:{k:'maxhp', v:15},   name:{es:'Outfitter',en:'Outfitter'},           desc:{es:'+15 vida máx por nivel.',en:'+15 max HP per level.'} },
+  { id:'jewel',   ico:'jewel',    cost:400,  income:8, buff:{k:'xp',    v:0.05}, name:{es:'Joyería',en:'Jewelry'},               desc:{es:'+5% XP, gran ingreso.',en:'+5% XP, high income.'} },
+  { id:'heli',    ico:'heli',     cost:1500, income:15,buff:{k:'airstrike',v:1}, name:{es:'Helipuerto',en:'Helipad'},            desc:{es:'Ataque aéreo cada 25s.',en:'Airstrike every 25s.'} },
 ];
 
 // Enemy archetypes (see GDD §8). Stats are multiplied by wave scaling at spawn.
@@ -39,32 +39,32 @@ const ENEMIES = {
 
 // Level-up cards (weapon + passive). Some are "rare".
 const CARD_POOL = [
-  { id:'dmg',    ico:'💢', name:'+Daño',        desc:'+20% daño',            apply:s=>s.dmgMult+=0.20 },
-  { id:'rate',   ico:'🔥', name:'+Cadencia',    desc:'+15% disparo',         apply:s=>s.rateMult+=0.15 },
-  { id:'proj',   ico:'🎯', name:'+Proyectil',   desc:'+1 bala',              apply:s=>s.projAdd+=1 },
-  { id:'pierce', ico:'🏹', name:'+Perforación', desc:'Atraviesa +1',         apply:s=>s.pierce+=1 },
-  { id:'speed',  ico:'👟', name:'+Velocidad',   desc:'+12% movimiento',      apply:s=>s.spdMult+=0.12 },
-  { id:'maxhp',  ico:'❤️', name:'+Vida máx',    desc:'+25 vida y cura',      apply:s=>{s.maxHp+=25;s.hp+=25;} },
-  { id:'regen',  ico:'➕', name:'+Regen',       desc:'+0.5 HP/s',            apply:s=>s.regen+=0.5 },
-  { id:'magnet', ico:'🧲', name:'+Imán',        desc:'+40 recogida',         apply:s=>s.magnet+=40 },
-  { id:'crit',   ico:'💥', name:'+Crítico',     desc:'+8% prob. crítico',    apply:s=>s.crit+=0.08 },
-  { id:'range',  ico:'📡', name:'+Alcance',     desc:'+60 alcance',          apply:s=>s.range+=60 },
+  { id:'dmg',    ico:'dmg',    name:{es:'+Daño',en:'+Damage'},      desc:{es:'+20% daño',en:'+20% damage'},        apply:s=>s.dmgMult+=0.20 },
+  { id:'rate',   ico:'rate',   name:{es:'+Cadencia',en:'+Fire Rate'},desc:{es:'+15% disparo',en:'+15% fire rate'}, apply:s=>s.rateMult+=0.15 },
+  { id:'proj',   ico:'proj',   name:{es:'+Proyectil',en:'+Projectile'},desc:{es:'+1 bala',en:'+1 bullet'},         apply:s=>s.projAdd+=1 },
+  { id:'pierce', ico:'pierce', name:{es:'+Perforación',en:'+Pierce'},desc:{es:'Atraviesa +1',en:'Pierce +1'},      apply:s=>s.pierce+=1 },
+  { id:'speed',  ico:'speed',  name:{es:'+Velocidad',en:'+Speed'},  desc:{es:'+12% movimiento',en:'+12% move'},    apply:s=>s.spdMult+=0.12 },
+  { id:'maxhp',  ico:'heart',  name:{es:'+Vida máx',en:'+Max HP'},  desc:{es:'+25 vida y cura',en:'+25 HP & heal'},apply:s=>{s.maxHp+=25;s.hp+=25;} },
+  { id:'regen',  ico:'regen',  name:{es:'+Regen',en:'+Regen'},      desc:{es:'+0.5 HP/s',en:'+0.5 HP/s'},          apply:s=>s.regen+=0.5 },
+  { id:'magnet', ico:'magnet', name:{es:'+Imán',en:'+Magnet'},      desc:{es:'+40 recogida',en:'+40 pickup'},      apply:s=>s.magnet+=40 },
+  { id:'crit',   ico:'crit',   name:{es:'+Crítico',en:'+Crit'},     desc:{es:'+8% crítico',en:'+8% crit chance'},  apply:s=>s.crit+=0.08 },
+  { id:'range',  ico:'range',  name:{es:'+Alcance',en:'+Range'},    desc:{es:'+60 alcance',en:'+60 range'},        apply:s=>s.range+=60 },
   // rare
-  { id:'shotgun',ico:'🔫', name:'ESCOPETA',     desc:'Disparo en abanico',   rare:true, apply:s=>{s.shotgun=true;s.projAdd+=2;} },
-  { id:'rocket', ico:'🚀', name:'COHETES',      desc:'Balas explosivas',     rare:true, apply:s=>{s.explosive=true;} },
-  { id:'vamp',   ico:'🩸', name:'VAMPIRISMO',   desc:'Roba vida al matar',   rare:true, apply:s=>{s.lifesteal+=0.5;} },
+  { id:'shotgun',ico:'shotgun',name:{es:'ESCOPETA',en:'SHOTGUN'},   desc:{es:'Disparo en abanico',en:'Spread shot'}, rare:true, apply:s=>{s.shotgun=true;s.projAdd+=2;} },
+  { id:'rocket', ico:'rocket', name:{es:'COHETES',en:'ROCKETS'},    desc:{es:'Balas explosivas',en:'Explosive bullets'}, rare:true, apply:s=>{s.explosive=true;} },
+  { id:'vamp',   ico:'vamp',   name:{es:'VAMPIRISMO',en:'LIFESTEAL'},desc:{es:'Roba vida al matar',en:'Steal HP on kill'}, rare:true, apply:s=>{s.lifesteal+=0.5;} },
 ];
 
 // Meta upgrades (persistent, bought with tokens). cost grows per level.
 const META = [
-  { id:'startHp',   name:'Vida inicial',  desc:'+30 vida máx', max:5, cost:l=>40+l*40,  val:l=>l*30 },
-  { id:'startCash', name:'Caja inicial',  desc:'+$120 al empezar', max:5, cost:l=>30+l*30, val:l=>l*120 },
-  { id:'income',    name:'Ingresos',      desc:'+8% ingresos globales', max:5, cost:l=>50+l*50, val:l=>l*0.08 },
-  { id:'damage',    name:'Potencia fuego',desc:'+10% daño inicial', max:5, cost:l=>50+l*45, val:l=>l*0.10 },
-  { id:'cheaper',   name:'Construcción',  desc:'-6% coste tiendas', max:5, cost:l=>60+l*50, val:l=>l*0.06 },
-  { id:'magnet',    name:'Imán',          desc:'+25 recogida', max:4, cost:l=>40+l*30, val:l=>l*25 },
-  { id:'revive',    name:'Revivir gratis',desc:'1 revivir por partida', max:1, cost:()=>250, val:l=>l },
-  { id:'pharmaStart',name:'Farmacia base',desc:'Empiezas con Farmacia', max:1, cost:()=>200, val:l=>l },
+  { id:'startHp',   ico:'heart', name:{es:'Vida inicial',en:'Start HP'},      desc:{es:'+30 vida máx',en:'+30 max HP'},          max:5, cost:l=>40+l*40,  val:l=>l*30 },
+  { id:'startCash', ico:'cash',  name:{es:'Caja inicial',en:'Start cash'},    desc:{es:'+$120 al empezar',en:'+$120 on start'}, max:5, cost:l=>30+l*30, val:l=>l*120 },
+  { id:'income',    ico:'market',name:{es:'Ingresos',en:'Income'},           desc:{es:'+8% ingresos',en:'+8% income'},          max:5, cost:l=>50+l*50, val:l=>l*0.08 },
+  { id:'damage',    ico:'dmg',   name:{es:'Potencia fuego',en:'Firepower'},  desc:{es:'+10% daño inicial',en:'+10% start damage'}, max:5, cost:l=>50+l*45, val:l=>l*0.10 },
+  { id:'cheaper',   ico:'build', name:{es:'Construcción',en:'Cheaper builds'},desc:{es:'-6% coste tiendas',en:'-6% store cost'},  max:5, cost:l=>60+l*50, val:l=>l*0.06 },
+  { id:'magnet',    ico:'magnet',name:{es:'Imán',en:'Magnet'},               desc:{es:'+25 recogida',en:'+25 pickup'},          max:4, cost:l=>40+l*30, val:l=>l*25 },
+  { id:'revive',    ico:'revive',name:{es:'Revivir gratis',en:'Free revive'},desc:{es:'1 revivir por partida',en:'1 revive per run'}, max:1, cost:()=>250, val:l=>l },
+  { id:'pharmaStart',ico:'pharma',name:{es:'Farmacia base',en:'Start Pharmacy'},desc:{es:'Empiezas con Farmacia',en:'Start with Pharmacy'}, max:1, cost:()=>200, val:l=>l },
 ];
 
 /* ===========================================================================
@@ -78,15 +78,128 @@ const FAME_TIERS = [
   { min:120,  name:'Casa segura',        ico:'🏠', color:'#5dff8f' },
   { min:350,  name:'Refugio conocido',   ico:'📻', color:'#7ce6ff' },
   { min:800,  name:'Refugio famoso',     ico:'⭐', color:'#ffcf3f' },
-  { min:1700, name:'Bastión legendario', ico:'🏰', color:'#ff9f43' },
-  { min:3400, name:'Faro de esperanza',  ico:'🔥', color:'#ff5e9e' },
+  { min:1700, name:{es:'Bastión legendario',en:'Legendary Bastion'}, ico:'castle', color:'#ff9f43' },
+  { min:3400, name:{es:'Faro de esperanza', en:'Beacon of Hope'},     ico:'fire',   color:'#ff5e9e' },
 ];
+// fix first tiers to bilingual (kept here for clarity)
+FAME_TIERS[0].name={es:'Escondite',en:'Hideout'};        FAME_TIERS[0].ico='candle';
+FAME_TIERS[1].name={es:'Casa segura',en:'Safe House'};   FAME_TIERS[1].ico='house';
+FAME_TIERS[2].name={es:'Refugio conocido',en:'Known Refuge'}; FAME_TIERS[2].ico='radio';
+FAME_TIERS[3].name={es:'Refugio famoso',en:'Famous Refuge'};  FAME_TIERS[3].ico='star';
+
+/* ===========================================================================
+   LOCALIZATION (ES / EN)
+   =========================================================================== */
+let LANG = 'es';
+function tx(o){ return (o && typeof o==='object') ? (o[LANG]||o.es) : o; }
+function t(k, p){
+  const d = I18N[LANG] || I18N.es;
+  let s = (k in d) ? d[k] : (I18N.es[k]!=null ? I18N.es[k] : k);
+  if(p) for(const key in p) s = s.split('{'+key+'}').join(p[key]);
+  return s;
+}
+const I18N = {
+  es:{
+    tagline:'Sobrevive mientras construyes tu centro comercial.',
+    play:'JUGAR', upgrades:'MEJORAS', howtoBtn:'Cómo se juega',
+    hint:'WASD / flechas o joystick · disparo automático',
+    howtoTitle:'Cómo se juega',
+    howto1:'Muévete con WASD / flechas (o el joystick en móvil).',
+    howto2:'Tu arma dispara sola al zombi más cercano.',
+    howto3:'Toca una parcela brillante para construir tiendas.',
+    howto4:'Las tiendas dan ingresos pasivos y bonus de combate.',
+    howto5:'Sube de nivel y elige cartas de mejora.',
+    howto6:'Sobrevive oleadas cada vez más duras. ¡Jefe cada 5 oleadas!',
+    gotIt:'¡Entendido!',
+    metaTitle:'Mejoras permanentes', back:'Volver', max:'MÁX',
+    traderTitle:'Comerciante del refugio', traderSub:'Ofertas por tiempo limitado — atraído por tu fama', close:'Cerrar',
+    levelTitle:'¡SUBISTE DE NIVEL!', chooseUpg:'Elige una mejora',
+    pauseTitle:'Pausa', resume:'Continuar', sound:'Sonido', quitMenu:'Salir al menú',
+    buildTitle:'Construir tienda', upgradeTitle:'Mejorar tienda', sold:'VENDIDO',
+    revive:'REVIVIR', x2tokens:'x2 TOKENS', retry:'Reintentar', menu:'Menú',
+    rotateTitle:'Gira tu dispositivo', rotateBody:'Este juego se juega en horizontal.<br/>Pon el móvil de lado para empezar.',
+    loading:'Cargando el centro comercial…',
+    boost:'x2 INGRESOS 60s', boostActive:'x2 INGRESOS {s}s',
+    waveLabel:'OLEADA',
+    goWin:'¡VICTORIA!', goLose:'FIN DE LA PARTIDA · Oleada {w}',
+    goStats:'Sobreviviste <b>{t}</b> · {k} zombis · {s} tiendas · Récord oleada {b}',
+    tokensEarned:'Tokens ganados:',
+    lvl:'Niv', upgradeRow:'Nivel {a} → {b} · {d} · +${i}/s',
+    // banners
+    wave:'OLEADA {n}', bossWave:'⚠ JEFE — OLEADA {n}',
+    megaHorde:'☣ HORDA ATRAÍDA POR TU FAMA', refugeAssault:'⚠ ASALTO AL REFUGIO',
+    // toasts
+    fameTip:'Tu FAMA sube al crecer. Más fama = más aliados y recursos… pero también más zombis y peligros.',
+    arrivalTip:'Un superviviente busca refugio. Protégelo hasta el mall (¡cuidado con infiltrados!).',
+    saboteurTip:'¡SABOTEADOR! Corre a por tus tiendas — ¡intercéptalo!',
+    hordeTip:'Tu fama atrae hordas masivas. Crecer rápido tiene un precio.',
+    traderTip:'Un comerciante montó su puesto. ¡Tócalo para comerciar!',
+    traderHere:'¡Comerciante en el refugio!', traderLeft:'El comerciante se marchó.',
+    joinedRefuge:'Un superviviente se unió a tu refugio.',
+    qInfected:'¡Era un infiltrado infectado! Cuarentena a tiempo.',
+    qHealthy:'Estaba sano… perdiste un aliado por desconfianza.',
+    sabotaged:'¡{store} saboteada! (-ingresos)', repaired:'Tienda reparada y operativa.',
+    devoured:'Un superviviente fue devorado antes de llegar.',
+    tierUpToast:'Tu refugio es ahora: {tier} — llegan más aliados… y más peligro.',
+    supplies:'Llega un convoy de suministros: +${amt}', medics:'Médicos voluntarios: +50% vida',
+    morale:'Moral por las nubes: x2 ingresos 30s', bandits:'Saqueadores roban ${amt} atraídos por tu fama',
+    discount:'Próxima tienda al 50%', turncoat:'¡Un superviviente era un INFILTRADO INFECTADO!',
+    saboteurKill:'¡SABOTEADOR!', reviveTxt:'¡REVIVIDO!', perSec:'/s', tradeCTA:'COMERCIAR',
+    incPerSec:'(+${v}/s)', tierAbandoned:'ABANDONADO', tierOperational:'OPERATIVO', tierFortified:'FORTIFICADO', tierMega:'MEGA-MALL',
+  },
+  en:{
+    tagline:'Survive while you build your shopping mall.',
+    play:'PLAY', upgrades:'UPGRADES', howtoBtn:'How to play',
+    hint:'WASD / arrows or joystick · auto-fire',
+    howtoTitle:'How to play',
+    howto1:'Move with WASD / arrows (or the joystick on mobile).',
+    howto2:'Your weapon auto-fires at the nearest zombie.',
+    howto3:'Tap a glowing plot to build stores.',
+    howto4:'Stores give passive income and combat bonuses.',
+    howto5:'Level up and pick upgrade cards.',
+    howto6:'Survive ever-harder waves. Boss every 5 waves!',
+    gotIt:'Got it!',
+    metaTitle:'Permanent upgrades', back:'Back', max:'MAX',
+    traderTitle:'Refuge trader', traderSub:'Limited-time deals — drawn by your fame', close:'Close',
+    levelTitle:'LEVEL UP!', chooseUpg:'Choose an upgrade',
+    pauseTitle:'Paused', resume:'Resume', sound:'Sound', quitMenu:'Quit to menu',
+    buildTitle:'Build store', upgradeTitle:'Upgrade store', sold:'SOLD',
+    revive:'REVIVE', x2tokens:'x2 TOKENS', retry:'Retry', menu:'Menu',
+    rotateTitle:'Rotate your device', rotateBody:'This game is played in landscape.<br/>Turn your phone sideways to start.',
+    loading:'Loading the mall…',
+    boost:'x2 INCOME 60s', boostActive:'x2 INCOME {s}s',
+    waveLabel:'WAVE',
+    goWin:'VICTORY!', goLose:'GAME OVER · Wave {w}',
+    goStats:'Survived <b>{t}</b> · {k} zombies · {s} stores · Best wave {b}',
+    tokensEarned:'Tokens earned:',
+    lvl:'Lv', upgradeRow:'Level {a} → {b} · {d} · +${i}/s',
+    wave:'WAVE {n}', bossWave:'⚠ BOSS — WAVE {n}',
+    megaHorde:'☣ HORDE DRAWN BY YOUR FAME', refugeAssault:'⚠ REFUGE ASSAULT',
+    fameTip:'Your FAME rises as you grow. More fame = more allies & resources… but more zombies & danger too.',
+    arrivalTip:'A survivor seeks refuge. Protect them to the mall (watch for infiltrators!).',
+    saboteurTip:'SABOTEUR! It rushes your stores — intercept it!',
+    hordeTip:'Your fame attracts massive hordes. Growing fast has a price.',
+    traderTip:'A trader set up shop. Tap them to trade!',
+    traderHere:'Trader in the refuge!', traderLeft:'The trader left.',
+    joinedRefuge:'A survivor joined your refuge.',
+    qInfected:'It was an infected infiltrator! Quarantined in time.',
+    qHealthy:'It was healthy… you lost an ally to paranoia.',
+    sabotaged:'{store} sabotaged! (-income)', repaired:'Store repaired and back online.',
+    devoured:'A survivor was devoured before reaching you.',
+    tierUpToast:'Your refuge is now: {tier} — more allies arrive… and more danger.',
+    supplies:'A supply convoy arrives: +${amt}', medics:'Volunteer medics: +50% HP',
+    morale:'Morale soaring: x2 income 30s', bandits:'Raiders steal ${amt}, drawn by your fame',
+    discount:'Next store 50% off', turncoat:'A survivor was an INFECTED INFILTRATOR!',
+    saboteurKill:'SABOTEUR!', reviveTxt:'REVIVED!', perSec:'/s', tradeCTA:'TRADE',
+    incPerSec:'(+${v}/s)', tierAbandoned:'ABANDONED', tierOperational:'OPERATIONAL', tierFortified:'FORTIFIED', tierMega:'MEGA-MALL',
+  },
+};
 
 /* ---------------------------------------------------------------------------
    1. SAVE / META PERSISTENCE
 --------------------------------------------------------------------------- */
 const Save = {
-  data:{ tokens:0, meta:{}, muted:false, bestWave:0 },
+  data:{ tokens:0, meta:{}, muted:false, bestWave:0, lang:null },
   load(){
     try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); if(s) this.data=Object.assign(this.data,s); }catch(e){}
     if(!this.data.meta) this.data.meta={};
@@ -316,7 +429,7 @@ function startRun(){
   recompute();
   s.hp = s.maxHp;
   Game.state='playing';
-  showWaveBanner('OLEADA 1');
+  showWaveBanner(t('wave',{n:1}));
   UI.hideAll(); UI.show('hud');
   UI.refreshJoystick();
   Audio2.resume();
@@ -533,7 +646,7 @@ function spawnSaboteur(){
     color:'#d14b8f', wob:Math.random()*7,
     hp:waveHp*1.4, maxHp:waveHp*1.4, spd:118,
     dmg:(4+Game.wave*0.6)*fm, bounty:5*(1+Game.wave*0.05), hitFlash:0, atkCd:0 });
-  if(!Game.tut.sab){ Game.tut.sab=1; toast('🕵️ ¡SABOTEADOR! Corre a por tus tiendas — ¡intercéptalo!','#ff5e9e'); }
+  if(!Game.tut.sab){ Game.tut.sab=1; toast(t('saboteurTip'),'#ff5e9e'); }
 }
 
 // Turncoat: an infiltrated infected "survivor" that turns INSIDE the refuge.
@@ -543,7 +656,7 @@ function spawnTurncoat(x,y){
     hp:waveHp*3, maxHp:waveHp*3, spd:72, dmg:(6+Game.wave*0.7)*fm,
     bounty:8*(1+Game.wave*0.05), hitFlash:0, atkCd:0 });
   Game.shake=10; Audio2.boss();
-  toast('🧟 ¡Un superviviente era un INFILTRADO INFECTADO!','#ff4d5e');
+  toast(t('turncoat'),'#ff4d5e');
 }
 
 function pickEnemyType(){
@@ -561,9 +674,9 @@ function nextWave(){
   if(Game.wave % 5 === 0){
     spawnZombie('brute', true);  // boss
     Audio2.boss();
-    showWaveBanner('⚠ JEFE — OLEADA '+Game.wave);
+    showWaveBanner(t('bossWave',{n:Game.wave}));
   } else {
-    showWaveBanner('OLEADA '+Game.wave);
+    showWaveBanner(t('wave',{n:Game.wave}));
   }
   recompute();
 }
@@ -696,7 +809,7 @@ function update(dt){
         if(tp.store && !(tp.disabledT>0)){
           tp.disabledT=12; recompute(); Game.shake=8;
           for(let k=0;k<16;k++) spawnParticle(tp.x,tp.y,'#ff8a3c');
-          toast('💥 ¡'+STORES.find(s2=>s2.id===tp.store).name+' saboteada! (-ingresos)','#ff4d5e');
+          toast(t('sabotaged',{store: tx(STORES.find(s2=>s2.id===tp.store).name)}),'#ff4d5e');
         }
         z.saboteur=false; z.sabotaged=true; z.spd=70;  // now hunts the player
       }
@@ -783,7 +896,7 @@ function killZombie(z){
   Audio2.coin();
   // fame from notoriety of the kill
   addFame(0.12 + Game.wave*0.01);
-  if(z.saboteur || z.sabotaged){ Game.cash+=20+Game.wave*5; addText(z.x,z.y-22,'¡SABOTEADOR!','#ff5e9e',14); addFame(6); }
+  if(z.saboteur || z.sabotaged){ Game.cash+=20+Game.wave*5; addText(z.x,z.y-22,t('saboteurKill'),'#ff5e9e',14); addFame(6); }
   // xp gem
   Game.gems.push({x:z.x,y:z.y,val: z.boss?40: (1+Math.floor(Game.wave*0.2)) });
   // particles
@@ -817,7 +930,7 @@ function onPlayerDead(){
   // free revive from meta
   if(Game.freeReviveAvail && !Game.reviveUsed){
     Game.freeReviveAvail=false; Game.reviveUsed=true;
-    addText(Game.player.x,Game.player.y-40,'¡REVIVIDO!','#36e0c8',22);
+    addText(Game.player.x,Game.player.y-40,t('reviveTxt'),'#36e0c8',22);
     Game.stats.hp=Game.stats.maxHp+Game.buffs.maxhp;
     Game.zombies=Game.zombies.filter(z=>dist(z.x,z.y,Game.player.x,Game.player.y)>220);
     return;
@@ -871,9 +984,9 @@ function addFame(v){
   const idx = fameTierIndex();
   if(idx > Game.fameTier){
     Game.fameTier = idx; Game.fameFlash = 1.6;
-    const t = FAME_TIERS[idx];
-    showWaveBanner(t.ico+' '+t.name.toUpperCase());
-    toast('Tu refugio es ahora: '+t.name+' — llegan más aliados… y más peligro.', t.color);
+    const ft = FAME_TIERS[idx], nm = tx(ft.name);
+    showWaveBanner(nm.toUpperCase());
+    toast(t('tierUpToast',{tier:nm}), ft.color);
     Audio2.levelup();
   }
 }
@@ -893,7 +1006,7 @@ function updateRefuge(dt){
 
   // disabled-store repair timers
   for(const pl of Game.plots){
-    if(pl.disabledT>0){ pl.disabledT-=dt; if(pl.disabledT<=0){ pl.disabledT=0; recompute(); toast('🔧 Tienda reparada y operativa.','#5dff8f'); } }
+    if(pl.disabledT>0){ pl.disabledT-=dt; if(pl.disabledT<=0){ pl.disabledT=0; recompute(); toast(t('repaired'),'#5dff8f'); } }
   }
 
   // arriving survivors walk toward the mall (can be devoured en route)
@@ -903,7 +1016,7 @@ function updateRefuge(dt){
     a.x+=Math.cos(da)*74*dt; a.y+=Math.sin(da)*74*dt;
     let eaten=false;
     for(const z of Game.zombies){ if(dist(z.x,z.y,a.x,a.y) < z.r+10){ eaten=true; break; } }
-    if(eaten){ Game.arrivals.splice(i,1); for(let k=0;k<8;k++) spawnParticle(a.x,a.y,'#ff4d5e'); toast('💀 Un superviviente fue devorado antes de llegar.','#ff4d5e'); addFame(-5); continue; }
+    if(eaten){ Game.arrivals.splice(i,1); for(let k=0;k<8;k++) spawnParticle(a.x,a.y,'#ff4d5e'); toast(t('devoured'),'#ff4d5e'); addFame(-5); continue; }
     if(dist(a.x,a.y,CX,CY) < 118){ Game.arrivals.splice(i,1); joinAlly(a.infected); }
   }
 
@@ -925,7 +1038,7 @@ function updateRefuge(dt){
   // trader director
   if(Game.trader){
     Game.trader.timer-=dt;
-    if(Game.trader.timer<=0){ Game.trader=null; toast('🚚 El comerciante se marchó.','#8b96b8'); }
+    if(Game.trader.timer<=0){ Game.trader=null; toast(t('traderLeft'),'#8b96b8'); }
   } else {
     Game.traderTimer-=dt;
     if(Game.traderTimer<=0 && tier>=1){ Game.traderTimer = Math.max(24, 55 - tier*4) + Math.random()*15; spawnTrader(tier); }
@@ -952,7 +1065,7 @@ function spawnArrival(){
   const sp=edgeSpawn(), tier=fameTierIndex();
   const infChance = Math.min(0.45, 0.04 + tier*0.07);  // famous refuges attract infiltrators
   Game.arrivals.push({ x:sp.x, y:sp.y, infected: Math.random()<infChance });
-  if(!Game.tut.arr){ Game.tut.arr=1; toast('🙋 Un superviviente busca refugio. Protégelo hasta el mall (¡cuidado con infiltrados!).','#5dff8f'); }
+  if(!Game.tut.arr){ Game.tut.arr=1; toast(t('arrivalTip'),'#5dff8f'); }
 }
 
 function joinAlly(infected){
@@ -961,7 +1074,7 @@ function joinAlly(infected){
   addFame(15);
   Audio2.coin();
   // same neutral message whether infected or not -> tension/paranoia
-  toast('🙂 Un superviviente se unió a tu refugio.', '#5dff8f');
+  toast(t('joinedRefuge'), '#5dff8f');
 }
 function joinAllyClean(){  // mercenary from trader — never infected
   const a=Math.random()*Math.PI*2, r=118+Math.random()*32;
@@ -972,26 +1085,26 @@ function quarantineAlly(al){
   const idx=Game.allies.indexOf(al); if(idx<0) return;
   Game.allies.splice(idx,1);
   for(let k=0;k<10;k++) spawnParticle(al.x,al.y,'#7ce6ff');
-  if(al.infected){ toast('✅ ¡Era un infiltrado infectado! Cuarentena a tiempo.','#5dff8f'); addFame(10); }
-  else { toast('😢 Estaba sano… perdiste un aliado por desconfianza.','#ff9f43'); addFame(-8); }
+  if(al.infected){ toast(t('qInfected'),'#5dff8f'); addFame(10); }
+  else { toast(t('qHealthy'),'#ff9f43'); addFame(-8); }
   Audio2.hit();
 }
 
 function spawnTrader(tier){
   Game.trader = { x:CX, y:CY-108, timer:35, deals: makeTraderDeals(tier) };
-  if(!Game.tut.trader){ Game.tut.trader=1; toast('🚚 Un comerciante montó su puesto. ¡Tócalo para comerciar!','#7ce6ff'); }
-  else toast('🚚 ¡Comerciante en el refugio!','#7ce6ff');
+  if(!Game.tut.trader){ Game.tut.trader=1; toast(t('traderTip'),'#7ce6ff'); }
+  else toast(t('traderHere'),'#7ce6ff');
   Audio2.build();
 }
 function makeTraderDeals(tier){
   const w=Game.wave;
   const all=[
-    { ico:'❤️', name:'Botiquín',        desc:'Cura completa',                 cost:60+w*10,  apply:()=>{ Game.stats.hp=eff().maxHp; } },
-    { ico:'🎯', name:'Munición pesada',  desc:'+1 proyectil permanente',       cost:200+w*30, apply:()=>{ Game.stats.projAdd+=1; recompute(); } },
-    { ico:'💪', name:'Mercenario',       desc:'Aliado de combate (sano)',      cost:150+w*25, apply:()=>{ joinAllyClean(); } },
-    { ico:'🛡️', name:'Chaleco',          desc:'+40 vida máxima',               cost:120+w*20, apply:()=>{ Game.stats.maxHp+=40; Game.stats.hp+=40; } },
-    { ico:'🏷️', name:'Descuento',        desc:'-50% próxima tienda',           cost:80+w*10,  apply:()=>{ Game.buildDiscount=0.5; toast('🏷️ Próxima tienda al 50%','#ffcf3f'); } },
-    { ico:'🔫', name:'Mejora de daño',   desc:'+15% daño permanente',          cost:180+w*25, apply:()=>{ Game.stats.dmgMult+=0.15; recompute(); } },
+    { ico:'heart',  name:{es:'Botiquín',en:'Med kit'},       desc:{es:'Cura completa',en:'Full heal'},               cost:60+w*10,  apply:()=>{ Game.stats.hp=eff().maxHp; } },
+    { ico:'proj',   name:{es:'Munición pesada',en:'Heavy ammo'}, desc:{es:'+1 proyectil permanente',en:'+1 permanent projectile'}, cost:200+w*30, apply:()=>{ Game.stats.projAdd+=1; recompute(); } },
+    { ico:'surv',   name:{es:'Mercenario',en:'Mercenary'},    desc:{es:'Aliado de combate (sano)',en:'Combat ally (clean)'}, cost:150+w*25, apply:()=>{ joinAllyClean(); } },
+    { ico:'armor',  name:{es:'Chaleco',en:'Vest'},            desc:{es:'+40 vida máxima',en:'+40 max HP'},            cost:120+w*20, apply:()=>{ Game.stats.maxHp+=40; Game.stats.hp+=40; } },
+    { ico:'build',  name:{es:'Descuento',en:'Discount'},      desc:{es:'-50% próxima tienda',en:'-50% next store'},   cost:80+w*10,  apply:()=>{ Game.buildDiscount=0.5; toast(t('discount'),'#ffcf3f'); } },
+    { ico:'dmg',    name:{es:'Mejora de daño',en:'Damage boost'}, desc:{es:'+15% daño permanente',en:'+15% permanent damage'}, cost:180+w*25, apply:()=>{ Game.stats.dmgMult+=0.15; recompute(); } },
   ];
   const n=Math.min(all.length, 3 + (tier>=3?1:0));
   return all.slice().sort(()=>Math.random()-0.5).slice(0,n).map(d=>({ ...d, sold:false }));
@@ -999,14 +1112,14 @@ function makeTraderDeals(tier){
 
 function fireRandomEvent(tier){
   const pos=[
-    ()=>{ const amt=40+Game.wave*15; Game.cash+=amt; toast('📦 Llega un convoy de suministros: +$'+amt,'#ffcf3f'); addFame(8); },
-    ()=>{ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+eff().maxHp*0.5); toast('💊 Médicos voluntarios: +50% vida','#5dff8f'); },
-    ()=>{ Game.boostTimer=Math.max(Game.boostTimer,30); recompute(); toast('🎉 Moral por las nubes: x2 ingresos 30s','#ff5e9e'); },
+    ()=>{ const amt=40+Game.wave*15; Game.cash+=amt; toast(t('supplies',{amt}),'#ffcf3f'); addFame(8); },
+    ()=>{ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+eff().maxHp*0.5); toast(t('medics'),'#5dff8f'); },
+    ()=>{ Game.boostTimer=Math.max(Game.boostTimer,30); recompute(); toast(t('morale'),'#ff5e9e'); },
   ];
   const neg=[
     ()=>megaHorde(),
     ()=>spawnSaboteur(),
-    ()=>{ const steal=Math.min(Game.cash, Math.round(Game.cash*0.15)); Game.cash-=steal; addFame(-10); toast('🏴 Saqueadores roban $'+steal+' atraídos por tu fama','#ff4d5e'); },
+    ()=>{ const steal=Math.min(Game.cash, Math.round(Game.cash*0.15)); Game.cash-=steal; addFame(-10); toast(t('bandits',{amt:steal}),'#ff4d5e'); },
   ];
   const negChance = Math.min(0.7, 0.2 + tier*0.1);
   const pool = (Math.random()<negChance) ? neg : pos;
@@ -1015,15 +1128,104 @@ function fireRandomEvent(tier){
 function megaHorde(){
   const n = 10 + Game.wave*2 + fameTierIndex()*5;
   for(let i=0;i<n && Game.zombies.length<300;i++) spawnZombie(pickEnemyType(), false);
-  showWaveBanner('☣ HORDA ATRAÍDA POR TU FAMA');
+  showWaveBanner(t('megaHorde'));
   Audio2.boss(); Game.shake=12;
-  if(!Game.tut.horde){ Game.tut.horde=1; toast('Tu fama atrae hordas masivas. Crecer rápido tiene un precio.','#ff9f43'); }
+  if(!Game.tut.horde){ Game.tut.horde=1; toast(t('hordeTip'),'#ff9f43'); }
 }
 function spawnFameBoss(){
   spawnZombie('brute', true);
-  showWaveBanner('⚠ ASALTO AL REFUGIO');
+  showWaveBanner(t('refugeAssault'));
   Audio2.boss(); Game.shake=14;
 }
+
+/* ---------------------------------------------------------------------------
+   12c. VECTOR ICON LIBRARY (custom-drawn, replaces emojis everywhere)
+--------------------------------------------------------------------------- */
+function rr(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function _circle(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); }
+
+// Draw icon `id` centered at (cx,cy), fitting ~s px. Flat 2–3 tone neon style.
+function drawIcon(g, id, cx, cy, s){
+  g.save(); g.translate(cx,cy);
+  const u=s*0.5; g.lineWidth=Math.max(1.6,s*0.07); g.lineJoin='round'; g.lineCap='round';
+  const set=(c)=>{ g.fillStyle=c; g.strokeStyle=c; };
+  switch(id){
+    case 'cafe': set('#c98a5a'); rr(g,-u*0.7,-u*0.45,u*1.15,u*0.95,s*0.06); g.fill();
+      g.strokeStyle='#c98a5a'; g.beginPath(); g.arc(u*0.55,-u*0.05,u*0.3,-1.1,1.1); g.stroke();
+      g.strokeStyle='#fff'; g.globalAlpha=.7; g.beginPath(); g.moveTo(-u*0.3,-u*0.7); g.quadraticCurveTo(-u*0.05,-u*0.55,-u*0.3,-u*0.9); g.moveTo(u*0.1,-u*0.7); g.quadraticCurveTo(u*0.35,-u*0.55,u*0.1,-u*0.9); g.stroke(); g.globalAlpha=1; break;
+    case 'gun': set('#e0e6ef'); rr(g,-u*0.85,-u*0.25,u*1.5,u*0.5,s*0.05); g.fill();
+      rr(g,-u*0.2,0,u*0.45,u*0.7,s*0.04); g.fill(); g.fillStyle='#ff8a5c'; rr(g,u*0.45,-u*0.18,u*0.35,u*0.18,2); g.fill(); break;
+    case 'pharma': set('#ff5e7a'); _circle(g,0,0,u*0.9); g.fill(); g.fillStyle='#fff';
+      rr(g,-u*0.45,-u*0.16,u*0.9,u*0.32,2); g.fill(); rr(g,-u*0.16,-u*0.45,u*0.32,u*0.9,2); g.fill(); break;
+    case 'rest': set('#ffce5a'); g.beginPath(); g.arc(0,u*0.1,u*0.78,Math.PI,0); g.fill();
+      g.fillStyle='#ff8a5c'; g.beginPath(); g.arc(0,u*0.1,u*0.78,Math.PI,0); g.fill(); g.fillStyle='#ffce5a'; rr(g,-u*0.85,u*0.1,u*1.7,u*0.28,3); g.fill();
+      g.fillStyle='#8fd14e'; _circle(g,-u*0.3,-u*0.2,u*0.12); g.fill(); _circle(g,u*0.2,-u*0.28,u*0.1); g.fill(); break;
+    case 'gym': set('#cfd6e6'); rr(g,-u*0.9,-u*0.18,u*0.35,u*0.36,2); g.fill(); rr(g,u*0.55,-u*0.18,u*0.35,u*0.36,2); g.fill();
+      rr(g,-u*0.6,-u*0.1,u*1.2,u*0.2,2); g.fill(); rr(g,-u*0.62,-u*0.3,u*0.16,u*0.6,2); g.fill(); rr(g,u*0.46,-u*0.3,u*0.16,u*0.6,2); g.fill(); break;
+    case 'market': set('#5dd6ff'); g.lineWidth=s*0.09; g.beginPath(); g.moveTo(-u*0.8,-u*0.6); g.lineTo(-u*0.5,-u*0.6); g.lineTo(-u*0.25,u*0.3); g.lineTo(u*0.7,u*0.3); g.lineTo(u*0.85,-u*0.35); g.lineTo(-u*0.35,-u*0.35); g.stroke();
+      g.fillStyle='#5dd6ff'; _circle(g,-u*0.1,u*0.6,u*0.13); g.fill(); _circle(g,u*0.55,u*0.6,u*0.13); g.fill(); break;
+    case 'security': set('#7c9cff'); g.beginPath(); g.moveTo(0,-u*0.85); g.lineTo(u*0.8,-u*0.5); g.lineTo(u*0.8,u*0.1); g.quadraticCurveTo(u*0.8,u*0.7,0,u*0.9); g.quadraticCurveTo(-u*0.8,u*0.7,-u*0.8,u*0.1); g.lineTo(-u*0.8,-u*0.5); g.closePath(); g.fill();
+      g.fillStyle='#fff'; g.lineWidth=s*0.1; g.strokeStyle='#fff'; g.beginPath(); g.moveTo(-u*0.32,0); g.lineTo(-u*0.05,u*0.3); g.lineTo(u*0.4,-u*0.3); g.stroke(); break;
+    case 'elec': set('#ffd23f'); g.beginPath(); g.moveTo(u*0.15,-u*0.9); g.lineTo(-u*0.5,u*0.12); g.lineTo(-u*0.02,u*0.12); g.lineTo(-u*0.2,u*0.9); g.lineTo(u*0.55,-u*0.18); g.lineTo(u*0.05,-u*0.18); g.closePath(); g.fill(); break;
+    case 'sports': set('#ff5e7a'); _circle(g,0,0,u*0.9); g.fill(); g.fillStyle='#fff'; _circle(g,0,0,u*0.6); g.fill();
+      g.fillStyle='#5dd6ff'; _circle(g,0,0,u*0.34); g.fill(); g.fillStyle='#ff5e7a'; _circle(g,0,0,u*0.12); g.fill(); break;
+    case 'armor': set('#b6ff3b'); g.beginPath(); g.moveTo(0,-u*0.85); g.lineTo(u*0.78,-u*0.45); g.lineTo(u*0.78,u*0.15); g.quadraticCurveTo(u*0.78,u*0.7,0,u*0.9); g.quadraticCurveTo(-u*0.78,u*0.7,-u*0.78,u*0.15); g.lineTo(-u*0.78,-u*0.45); g.closePath(); g.fill();
+      g.strokeStyle='#1c0b2e'; g.lineWidth=s*0.06; g.beginPath(); g.moveTo(0,-u*0.6); g.lineTo(0,u*0.6); g.stroke(); break;
+    case 'jewel': set('#5dffe0'); g.beginPath(); g.moveTo(0,-u*0.7); g.lineTo(u*0.75,-u*0.15); g.lineTo(0,u*0.85); g.lineTo(-u*0.75,-u*0.15); g.closePath(); g.fill();
+      g.strokeStyle='#0d2e2a'; g.lineWidth=s*0.05; g.beginPath(); g.moveTo(-u*0.75,-u*0.15); g.lineTo(u*0.75,-u*0.15); g.moveTo(0,-u*0.7); g.lineTo(0,-u*0.15); g.stroke(); break;
+    case 'heli': set('#cfd6e6'); g.lineWidth=s*0.1; g.beginPath(); g.moveTo(-u*0.85,-u*0.55); g.lineTo(u*0.85,-u*0.55); g.stroke();
+      g.fillStyle='#7c9cff'; _circle(g,0,u*0.1,u*0.55); g.fill(); g.fillStyle='#cfd6e6'; rr(g,u*0.35,-u*0.05,u*0.6,u*0.22,3); g.fill(); g.fillStyle='#cfd6e6'; rr(g,-u*0.06,-u*0.55,u*0.12,u*0.3,2); g.fill(); break;
+    // ---- combat cards ----
+    case 'dmg': set('#ff5e7a'); g.beginPath(); for(let i=0;i<8;i++){ const a=i/8*6.283, r=(i%2?u*0.4:u*0.9); g[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);} g.closePath(); g.fill(); break;
+    case 'rate': set('#ff8a3c'); g.beginPath(); g.moveTo(-u*0.1,-u*0.9); g.quadraticCurveTo(-u*0.7,-u*0.1,-u*0.15,u*0.05); g.quadraticCurveTo(-u*0.5,u*0.6,u*0.1,u*0.9); g.quadraticCurveTo(u*0.7,u*0.1,u*0.15,-u*0.05); g.quadraticCurveTo(u*0.45,-u*0.5,-u*0.1,-u*0.9); g.closePath(); g.fill(); break;
+    case 'proj': set('#5dd6ff'); g.beginPath(); g.moveTo(u*0.85,0); g.lineTo(-u*0.5,-u*0.55); g.lineTo(-u*0.25,0); g.lineTo(-u*0.5,u*0.55); g.closePath(); g.fill(); break;
+    case 'pierce': set('#b6ff3b'); g.lineWidth=s*0.12; g.beginPath(); g.moveTo(-u*0.8,u*0.8); g.lineTo(u*0.8,-u*0.8); g.stroke();
+      g.beginPath(); g.moveTo(u*0.3,-u*0.8); g.lineTo(u*0.8,-u*0.8); g.lineTo(u*0.8,-u*0.3); g.stroke(); break;
+    case 'speed': set('#5dd6ff'); for(let i=0;i<3;i++){ g.beginPath(); const o=-u*0.5+i*u*0.5; g.moveTo(o,-u*0.6); g.lineTo(o+u*0.35,0); g.lineTo(o,u*0.6); g.lineTo(o-u*0.1,u*0.6); g.lineTo(o+u*0.2,0); g.lineTo(o-u*0.1,-u*0.6); g.closePath(); g.fill(); } break;
+    case 'heart': set('#ff3b5c'); g.beginPath(); g.moveTo(0,u*0.8); g.bezierCurveTo(-u*1.1,-u*0.05,-u*0.45,-u*0.95,0,-u*0.25); g.bezierCurveTo(u*0.45,-u*0.95,u*1.1,-u*0.05,0,u*0.8); g.closePath(); g.fill(); break;
+    case 'regen': set('#b6ff3b'); rr(g,-u*0.22,-u*0.8,u*0.44,u*1.6,3); g.fill(); rr(g,-u*0.8,-u*0.22,u*1.6,u*0.44,3); g.fill(); break;
+    case 'magnet': set('#ff5e7a'); g.lineWidth=s*0.26; g.strokeStyle='#ff5e7a'; g.beginPath(); g.arc(0,u*0.05,u*0.6,Math.PI,0); g.stroke();
+      g.lineWidth=1; g.fillStyle='#cfd6e6'; rr(g,-u*0.73,u*0.0,u*0.26,u*0.5,1); g.fill(); rr(g,u*0.47,u*0.0,u*0.26,u*0.5,1); g.fill(); break;
+    case 'crit': set('#ffd23f'); g.beginPath(); for(let i=0;i<12;i++){ const a=i/12*6.283, r=(i%2?u*0.3:u*0.95); g[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);} g.closePath(); g.fill(); break;
+    case 'range': set('#5dd6ff'); g.lineWidth=s*0.09; g.beginPath(); g.arc(0,0,u*0.85,0,7); g.stroke(); g.beginPath(); g.arc(0,0,u*0.45,0,7); g.stroke(); g.fillStyle='#5dd6ff'; _circle(g,0,0,u*0.13); g.fill(); break;
+    case 'shotgun': set('#e0e6ef'); rr(g,-u*0.9,-u*0.2,u*1.7,u*0.34,2); g.fill(); rr(g,-u*0.9,u*0.0,u*1.7,u*0.34,2); g.fill(); g.fillStyle='#8a5a2a'; rr(g,-u*0.95,-u*0.05,u*0.4,u*0.55,2); g.fill(); break;
+    case 'rocket': set('#cfd6e6'); g.beginPath(); g.moveTo(0,-u*0.9); g.quadraticCurveTo(u*0.45,-u*0.3,u*0.4,u*0.4); g.lineTo(-u*0.4,u*0.4); g.quadraticCurveTo(-u*0.45,-u*0.3,0,-u*0.9); g.closePath(); g.fill();
+      g.fillStyle='#ff5e7a'; g.beginPath(); g.moveTo(-u*0.4,u*0.4); g.lineTo(-u*0.7,u*0.8); g.lineTo(-u*0.1,u*0.5); g.closePath(); g.moveTo(u*0.4,u*0.4); g.lineTo(u*0.7,u*0.8); g.lineTo(u*0.1,u*0.5); g.fill();
+      g.fillStyle='#5dd6ff'; _circle(g,0,-u*0.15,u*0.16); g.fill(); break;
+    case 'vamp': set('#ff3b5c'); g.beginPath(); g.moveTo(0,-u*0.9); g.quadraticCurveTo(u*0.7,u*0.1,0,u*0.85); g.quadraticCurveTo(-u*0.7,u*0.1,0,-u*0.9); g.closePath(); g.fill();
+      g.fillStyle='#fff'; g.globalAlpha=.8; _circle(g,-u*0.18,-u*0.1,u*0.12); g.fill(); g.globalAlpha=1; break;
+    // ---- meta / ui / world ----
+    case 'cash': set('#ffc23c'); _circle(g,0,0,u*0.92); g.fill(); g.fillStyle='#9a6a10'; g.font='bold '+(s*0.8)+'px Rajdhani'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('$',0,s*0.04); break;
+    case 'token': set('#ffd23f'); _circle(g,0,0,u*0.92); g.fill(); g.strokeStyle='#9a6a10'; g.lineWidth=s*0.07; _circle(g,0,0,u*0.62); g.stroke(); g.fillStyle='#9a6a10'; g.beginPath(); for(let i=0;i<5;i++){const a=i/5*6.283-1.57,r=(i%2?u*0.2:u*0.46); g[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);} g.closePath(); g.fill(); break;
+    case 'build': set('#ffc23c'); rr(g,-u*0.5,-u*0.85,u*0.3,u*1.7,2); g.fill(); g.save(); g.rotate(0.5); rr(g,-u*0.15,-u*0.95,u*0.3,u*0.9,2); g.fill(); g.restore(); g.fillStyle='#cfd6e6'; rr(g,-u*0.85,u*0.55,u*1.7,u*0.3,2); g.fill(); break;
+    case 'revive': set('#5dff8f'); g.lineWidth=s*0.12; g.strokeStyle='#5dff8f'; g.beginPath(); g.arc(0,0,u*0.7,-1.2,4.2); g.stroke(); g.fillStyle='#5dff8f'; g.beginPath(); g.moveTo(u*0.62,-u*0.85); g.lineTo(u*0.78,-u*0.1); g.lineTo(u*0.1,-u*0.4); g.closePath(); g.fill(); break;
+    case 'skull': set('#cfd6e6'); g.beginPath(); g.arc(0,-u*0.15,u*0.8,Math.PI,0); g.lineTo(u*0.45,u*0.5); g.lineTo(-u*0.45,u*0.5); g.closePath(); g.fill();
+      g.fillStyle='#16091f'; _circle(g,-u*0.32,-u*0.1,u*0.22); g.fill(); _circle(g,u*0.32,-u*0.1,u*0.22); g.fill(); break;
+    case 'clock': set('#9fb4ff'); _circle(g,0,0,u*0.9); g.fill(); g.strokeStyle='#16091f'; g.lineWidth=s*0.08; g.beginPath(); g.moveTo(0,0); g.lineTo(0,-u*0.5); g.moveTo(0,0); g.lineTo(u*0.4,u*0.1); g.stroke(); break;
+    case 'star': set('#ffd23f'); g.beginPath(); for(let i=0;i<10;i++){const a=i/10*6.283-1.57,r=(i%2?u*0.4:u*0.95); g[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);} g.closePath(); g.fill(); break;
+    case 'boost': set('#ff5eb8'); g.beginPath(); g.moveTo(-u*0.1,-u*0.9); g.lineTo(-u*0.55,u*0.15); g.lineTo(-u*0.05,u*0.15); g.lineTo(-u*0.2,u*0.9); g.lineTo(u*0.6,-u*0.2); g.lineTo(u*0.05,-u*0.2); g.closePath(); g.fill(); break;
+    case 'surv': set('#5dff8f'); _circle(g,0,-u*0.45,u*0.32); g.fill(); g.beginPath(); g.moveTo(-u*0.5,u*0.85); g.quadraticCurveTo(0,-u*0.1,u*0.5,u*0.85); g.closePath(); g.fill(); break;
+    case 'mall': set('#cfd6e6'); rr(g,-u*0.85,-u*0.2,u*1.7,u*1.0,2); g.fill(); g.fillStyle='#ff2e88'; g.beginPath(); g.moveTo(-u*0.95,-u*0.2); g.lineTo(0,-u*0.85); g.lineTo(u*0.95,-u*0.2); g.closePath(); g.fill(); break;
+    case 'trader': set('#ffce5a'); rr(g,-u*0.8,-u*0.1,u*1.6,u*0.7,2); g.fill(); g.fillStyle='#ff3b5c'; for(let i=0;i<4;i++){ rr(g,-u*0.8+i*u*0.4,-u*0.45,u*0.4,u*0.35,1); g.fillStyle=i%2?'#fff':'#ff3b5c'; g.fill(); } break;
+    case 'saboteur': set('#ff5e9e'); g.lineWidth=s*0.16; g.strokeStyle='#ff5e9e'; g.beginPath(); g.moveTo(-u*0.6,u*0.6); g.lineTo(u*0.3,-u*0.3); g.stroke(); _circle(g,u*0.45,-u*0.45,u*0.3); g.stroke(); break;
+    default: set('#b39ad4'); g.font='bold '+(s*0.9)+'px Rajdhani'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('?',0,s*0.05);
+  }
+  g.restore();
+}
+
+// cached data-URL for DOM <img> use
+const _iconCache={};
+function iconURL(id, px){
+  px=px||44; const key=id+'@'+px;
+  if(_iconCache[key]) return _iconCache[key];
+  try{
+    const c=document.createElement('canvas'); const r=2; c.width=px*r; c.height=px*r;
+    const g=c.getContext('2d'); g.scale(r,r);
+    drawIcon(g, id, px/2, px/2, px*0.84);
+    const url=c.toDataURL(); _iconCache[key]=url; return url;
+  }catch(e){ return ''; }
+}
+function iconImg(id, px, cls){ px=px||40; return '<img class="'+(cls||'ui-ico')+'" style="width:'+px+'px;height:'+px+'px" src="'+iconURL(id,px)+'" alt="">'; }
 
 /* ---------------------------------------------------------------------------
    13. RENDER
@@ -1125,15 +1327,13 @@ function drawMall(){
   roundRect(CX-110,CY-78,220,156,16); ctx.stroke();
   ctx.shadowBlur=0;
   // roof sign
-  ctx.fillStyle=signCol;
-  ctx.font='22px Rajdhani'; ctx.textAlign='center';
-  ctx.fillText('🏬',CX,CY-22);
-  ctx.fillStyle='#fff'; ctx.font='16px Bungee';
+  drawIcon(ctx, 'mall', CX, CY-26, 30);
+  ctx.fillStyle='#fff'; ctx.font='16px Bungee'; ctx.textAlign='center';
   ctx.shadowColor=signCol; ctx.shadowBlur=tier>=1?12:0;
-  ctx.fillText('MALL',CX,CY+4);
+  ctx.fillText('MALL',CX,CY+6);
   ctx.shadowBlur=0;
   ctx.fillStyle=signCol; ctx.font='600 11px Rajdhani';
-  ctx.fillText(['ABANDONADO','OPERATIVO','FORTIFICADO','MEGA-MALL'][tier],CX,CY+24);
+  ctx.fillText([t('tierAbandoned'),t('tierOperational'),t('tierFortified'),t('tierMega')][tier],CX,CY+24);
   ctx.restore();
 }
 
@@ -1146,8 +1346,7 @@ function drawPlot(p){
     ctx.fillStyle='#2a1840'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
     ctx.shadowBlur=0; ctx.strokeStyle=tierGlow; ctx.lineWidth=1.5; roundRect(p.x-30,p.y-30,60,60,10); ctx.stroke();
     ctx.shadowBlur=0;
-    ctx.font='28px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(def.ico,p.x,p.y-2);
+    drawIcon(ctx, def.ico, p.x, p.y-3, 32);
     // level pips
     for(let i=0;i<5;i++){ ctx.fillStyle=i<p.lvl?tierGlow:'#39435f'; ctx.fillRect(p.x-22+i*9,p.y+18,7,4); }
     // saboteur disabled overlay
@@ -1238,7 +1437,7 @@ function drawZombie(z){
   // type accents
   if(z.type==='spitter'){ ctx.fillStyle='#5b2a8a'; ctx.beginPath(); ctx.arc(0,-z.r*0.45,z.r*0.2,0,7); ctx.fill(); }
   if(z.type==='bloater'){ ctx.fillStyle='rgba(180,230,120,.5)'; ctx.beginPath(); ctx.arc(0,z.r*0.05,z.r*0.7+Math.sin(Game.time*4)*1.5,0,7); ctx.fill(); }
-  if(z.saboteur||z.sabotaged){ ctx.fillStyle='#fff'; ctx.font='bold '+(11*s)+'px Rajdhani'; ctx.textAlign='center'; ctx.fillText('🔧',0,-z.r*1.25); }
+  if(z.saboteur||z.sabotaged){ drawIcon(ctx, 'saboteur', 0, -z.r*1.35, 16); }
   if(z.boss){
     ctx.fillStyle='#16306e'; roundRect(-z.r*0.55,-z.r*1.25,z.r*1.1,z.r*0.4,2*s); ctx.fill();
     ctx.fillStyle='#ffcf3f'; ctx.beginPath(); ctx.arc(0,-z.r*1.05,z.r*0.13,0,7); ctx.fill();
@@ -1250,7 +1449,7 @@ function drawZombie(z){
     ctx.fillStyle='#400'; ctx.fillRect(z.x-z.r,z.y-z.r-12,w,4);
     ctx.fillStyle=z.boss?'#ff4d5e':'#5dff8f'; ctx.fillRect(z.x-z.r,z.y-z.r-12,hpw,4);
   }
-  if(z.boss){ ctx.fillStyle='#fff'; ctx.font='bold 12px Rajdhani'; ctx.textAlign='center'; ctx.fillText('👮 THE MALL COP', z.x, z.y-z.r-18); }
+  if(z.boss){ drawIcon(ctx,'skull',z.x-46,z.y-z.r-16,14); ctx.fillStyle='#fff'; ctx.font='bold 13px Bungee'; ctx.textAlign='center'; ctx.fillText('THE MALL COP', z.x+8, z.y-z.r-12); }
 }
 
 function drawSurvivor(o, phase, isArrival){
@@ -1275,12 +1474,11 @@ function drawTrader(){
   // striped awning
   for(let i=0;i<6;i++){ ctx.fillStyle = i%2? '#c0392b':'#f5f5f5'; ctx.beginPath();
     ctx.moveTo(-24+i*8,-4); ctx.lineTo(-24+(i+1)*8,-4); ctx.lineTo(-24+(i+1)*8-3,-12); ctx.lineTo(-24+i*8-3,-12); ctx.closePath(); ctx.fill(); }
-  ctx.fillStyle='#fff'; ctx.font='15px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('🛒', 0, 7); ctx.textBaseline='alphabetic';
+  drawIcon(ctx, 'market', 0, 6, 16);
   // pulsing call-to-action
   const pulse=0.6+0.4*Math.sin(Game.time*5);
-  ctx.fillStyle='rgba(124,230,255,'+pulse+')'; ctx.font='bold 11px Rajdhani';
-  ctx.fillText('COMERCIAR · '+Math.ceil(tr.timer)+'s', 0, -18);
+  ctx.fillStyle='rgba(124,230,255,'+pulse+')'; ctx.font='bold 11px Rajdhani'; ctx.textAlign='center';
+  ctx.fillText(t('tradeCTA')+' · '+Math.ceil(tr.timer)+'s', 0, -18);
   ctx.restore();
 }
 
@@ -1336,23 +1534,24 @@ const UI = {
     $('wave-text').textContent = Game.wave;
     $('time-text').textContent = fmtTime(Game.time);
     $('xp-fill').style.width = (Game.xp/Game.xpNext*100)+'%';
-    $('lvl-text').textContent = 'Lv '+Game.level;
+    $('lvl-text').textContent = t('lvl')+' '+Game.level;
     // fame
     const idx=fameTierIndex(), tDef=FAME_TIERS[idx], next=FAME_TIERS[idx+1];
     const ft=$('fame-tier');
-    if(ft){ ft.textContent = tDef.ico+' '+tDef.name; ft.style.color=tDef.color; }
+    if(ft){ ft.textContent = tx(tDef.name); ft.style.color=tDef.color; }
     let pct=100; if(next){ pct=((Game.fame-tDef.min)/(next.min-tDef.min))*100; }
     if($('fame-fill')){ $('fame-fill').style.width=clamp(pct,0,100)+'%'; $('fame-fill').style.background=tDef.color; }
     if($('surv-text')) $('surv-text').textContent=Game.allies.length;
+    const bl=$('boost-label');
+    if(bl) bl.textContent = Game.boostTimer>0 ? t('boostActive',{s:Math.ceil(Game.boostTimer)}) : t('boost');
     $('btn-boost').disabled = Game.boostTimer>0;
-    $('btn-boost').textContent = Game.boostTimer>0 ? ('x2 INGRESOS '+Math.ceil(Game.boostTimer)+'s') : '🎬 x2 INGRESOS 60s';
   },
 
   showGameOver(secs, tokens){
     this.hideAll();
     const won = Game.wave>20;
-    $('go-title').textContent = won?'¡VICTORIA!':'FIN DE LA PARTIDA · Oleada '+Game.wave;
-    $('go-stats').innerHTML = `Sobreviviste <b>${fmtTime(secs)}</b> · ${Game.kills} zombis · ${Game.plots.filter(p=>p.store).length} tiendas · Récord oleada ${Save.data.bestWave}`;
+    $('go-title').textContent = won? t('goWin') : t('goLose',{w:Game.wave});
+    $('go-stats').innerHTML = t('goStats',{t:fmtTime(secs),k:Game.kills,s:Game.plots.filter(p=>p.store).length,b:Save.data.bestWave});
     $('go-tokens').textContent = '+'+tokens;
     // revive only available if not used & there's a body
     $('btn-revive').style.display = (Game.reviveUsed)?'none':'block';
@@ -1370,9 +1569,10 @@ const UI = {
       const lvl=Save.metaLvl(m.id), maxed=lvl>=m.max, cost=m.cost(lvl);
       const card=document.createElement('div'); card.className='meta-card'+(maxed?' maxed':'');
       let pips=''; for(let i=0;i<m.max;i++) pips+=`<div class="pip ${i<lvl?'on':''}"></div>`;
-      card.innerHTML=`<div class="mc-name">${m.name}</div><div class="mc-desc">${m.desc}</div>
+      card.innerHTML=`<div class="mc-head">${iconImg(m.ico,30,'mc-ico')}<span class="mc-name">${tx(m.name)}</span></div>
+        <div class="mc-desc">${tx(m.desc)}</div>
         <div class="mc-pips">${pips}</div>
-        <button class="btn mc-buy">${maxed?'MÁX':cost+' 🪙'}</button>`;
+        <button class="btn mc-buy">${maxed?t('max'):cost+' '+iconImg('token',16,'inl')}</button>`;
       const btn=card.querySelector('.mc-buy');
       if(!maxed){
         btn.disabled = Save.data.tokens<cost;
@@ -1409,22 +1609,21 @@ function openBuild(plot){
   Game.state='build';
   resetJoystick();
   const list=$('build-list'); list.innerHTML='';
-  $('build-title').textContent = plot.store ? 'Mejorar tienda' : 'Construir tienda';
+  $('build-title').textContent = plot.store ? t('upgradeTitle') : t('buildTitle');
 
   if(plot.store){
     const def=STORES.find(s=>s.id===plot.store);
     const cost=storeCost(def,plot);
     const maxed = plot.lvl>=5;
-    const row=storeRow(def, maxed?'MÁX':('$'+fmt(cost)), maxed?false:Game.cash>=cost,
-      `Nivel ${plot.lvl} → ${plot.lvl+1} · ${def.desc} · +$${(def.income*Math.pow(1.5,plot.lvl)).toFixed(0)}/s`);
+    const row=storeRow(def, maxed?t('max'):('$'+fmt(cost)), maxed?false:Game.cash>=cost,
+      t('upgradeRow',{a:plot.lvl,b:plot.lvl+1,d:tx(def.desc),i:(def.income*Math.pow(1.5,plot.lvl)).toFixed(0)}));
     if(!maxed) row.onclick=()=>{ if(Game.cash>=cost){ Game.cash-=cost; plot.lvl++; afterBuild(def,plot); } };
     list.appendChild(row);
   } else {
     STORES.forEach(def=>{
-      const unlocked = Save.data.bestWave>0 || def.cost<=250 || true; // all available; gate by cost only
       const cost=storeCost(def,plot);
       const afford=Game.cash>=cost;
-      const row=storeRow(def, '$'+fmt(cost), afford, def.desc+' · +$'+def.income+'/s');
+      const row=storeRow(def, '$'+fmt(cost), afford, tx(def.desc)+' · +$'+def.income+t('perSec'));
       row.onclick=()=>{ if(Game.cash>=cost){ Game.cash-=cost; plot.store=def.id; plot.lvl=1; Game.buildDiscount=0; afterBuild(def,plot); } };
       list.appendChild(row);
     });
@@ -1434,8 +1633,8 @@ function openBuild(plot){
 
 function storeRow(def, costTxt, afford, desc){
   const row=document.createElement('div'); row.className='store-row'+(afford?'':' locked');
-  row.innerHTML=`<div class="s-ico">${def.ico}</div>
-    <div class="s-main"><div class="s-name">${def.name}</div><div class="s-desc">${desc}</div></div>
+  row.innerHTML=`<div class="s-ico">${iconImg(def.ico,40)}</div>
+    <div class="s-main"><div class="s-name">${tx(def.name)}</div><div class="s-desc">${desc}</div></div>
     <div class="s-cost ${afford?'':'cant'}">${costTxt}</div>`;
   return row;
 }
@@ -1447,7 +1646,7 @@ function afterBuild(def, plot){
   if(def.id==='pharma'){ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+8*plot.lvl); }
   // building/expanding the refuge raises its fame
   addFame(def.cost*0.1);
-  if(!Game.tut.fame){ Game.tut.fame=1; toast('⭐ Tu FAMA sube al crecer. Más fama = más aliados y recursos… pero también más zombis y peligros.','#ffcf3f'); }
+  if(!Game.tut.fame){ Game.tut.fame=1; toast(t('fameTip'),'#ffcf3f'); }
   recompute();
   // refresh menu (stay open for chained upgrades)
   openBuild(plot);
@@ -1464,9 +1663,9 @@ function openTrader(){
   Game.trader.deals.forEach(d=>{
     const afford = Game.cash>=d.cost && !d.sold;
     const row=document.createElement('div'); row.className='store-row'+(afford?'':' locked');
-    row.innerHTML=`<div class="s-ico">${d.ico}</div>
-      <div class="s-main"><div class="s-name">${d.name}</div><div class="s-desc">${d.desc}</div></div>
-      <div class="s-cost ${afford?'':'cant'}">${d.sold?'VENDIDO':'$'+fmt(d.cost)}</div>`;
+    row.innerHTML=`<div class="s-ico">${iconImg(d.ico,40)}</div>
+      <div class="s-main"><div class="s-name">${tx(d.name)}</div><div class="s-desc">${tx(d.desc)}</div></div>
+      <div class="s-cost ${afford?'':'cant'}">${d.sold?t('sold'):'$'+fmt(d.cost)}</div>`;
     if(afford) row.onclick=()=>{ if(Game.cash>=d.cost && !d.sold){ Game.cash-=d.cost; d.sold=true; d.apply(); Audio2.coin(); openTrader(); } };
     list.appendChild(row);
   });
@@ -1504,7 +1703,7 @@ function drawCards(){
   }
   chosen.forEach(c=>{
     const el=document.createElement('div'); el.className='lcard'+(c.rare?' rare':'');
-    el.innerHTML=`<div class="lc-ico">${c.ico}</div><div class="lc-name">${c.name}</div><div class="lc-desc">${c.desc}</div>`;
+    el.innerHTML=`<div class="lc-ico">${iconImg(c.ico,52)}</div><div class="lc-name">${tx(c.name)}</div><div class="lc-desc">${tx(c.desc)}</div>`;
     el.onclick=()=>{ c.apply(Game.stats); Audio2.build(); recompute(); UI.hide('levelup'); Game.state='playing'; };
     row.appendChild(el);
   });
@@ -1523,15 +1722,33 @@ document.addEventListener('visibilitychange', ()=>{ if(document.hidden && Game.s
 /* ---------------------------------------------------------------------------
    19. WIRE UP BUTTONS
 --------------------------------------------------------------------------- */
+// fill static [data-ico] placeholders with vector icons (once)
+function fillIcons(){
+  document.querySelectorAll('[data-ico]').forEach(el=>{
+    if(el.dataset.filled) return;
+    el.innerHTML = iconImg(el.dataset.ico, +(el.dataset.size||18));
+    el.dataset.filled='1';
+  });
+}
+// apply current language to all static [data-i18n] elements
+function applyLang(){
+  try{ document.documentElement.lang = LANG; }catch(e){}
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.innerHTML = t(el.dataset.i18n); });
+  const lb=$('btn-lang'); if(lb) lb.textContent = LANG.toUpperCase();
+  if(Game.stats) UI.refreshHUD();
+}
+function setLang(l){ LANG=l; Save.data.lang=l; Save.save(); applyLang(); }
+
 function bindUI(){
   $('btn-play').onclick=()=>{ Audio2.resume(); startRun(); };
+  $('btn-lang').onclick=()=>setLang(LANG==='es'?'en':'es');
   $('btn-meta').onclick=()=>{ UI.buildMeta(); UI.show('meta'); };
   $('btn-meta-close').onclick=()=>UI.hide('meta');
   $('btn-howto').onclick=()=>UI.show('howto');
   $('btn-howto-close').onclick=()=>UI.hide('howto');
 
   $('btn-mute').onclick=()=>{ const m=Audio2.toggleMute(); $('btn-mute').textContent=m?'🔇':'🔊'; };
-  $('btn-pause-mute').onclick=()=>{ const m=Audio2.toggleMute(); $('btn-pause-mute').textContent=m?'🔇 Sonido':'🔊 Sonido'; };
+  $('btn-pause-mute').onclick=()=>{ const m=Audio2.toggleMute(); $('pmute-ico').textContent=m?'🔇':'🔊'; };
 
   $('btn-build-close').onclick=closeBuild;
   $('btn-trader-close').onclick=closeTrader;
@@ -1567,9 +1784,14 @@ function bindUI(){
 async function boot(){
   Save.load();
   Audio2.init();
+  // language: saved choice, else browser, else English
+  LANG = Save.data.lang || (((navigator.language||navigator.userLanguage||'en').toLowerCase().indexOf('es')===0) ? 'es' : 'en');
+  Save.data.lang = LANG;
   resize();
   bindUI();
-  if(Save.data.muted) $('btn-mute').textContent='🔇';
+  fillIcons();
+  applyLang();
+  if(Save.data.muted){ $('btn-mute').textContent='🔇'; const pm=$('pmute-ico'); if(pm) pm.textContent='🔇'; }
   isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
 
   // init SDK first (async), then bracket asset loading with loadingStart/Stop

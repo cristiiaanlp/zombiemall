@@ -38,6 +38,18 @@ en modo standalone para que puedas probar revive / x2 / boost.
 - **Comerciar / cuarentena:** toca el puesto del comerciante o a un aliado superviviente.
 - **Pausa:** `Esc` / `P` / botón ⏸ (también pausa al perder el foco de la pestaña).
 
+## Idiomas 🌐
+- **Español e inglés**, con selector (botón **ES/EN** en el menú; también en la barra inferior del menú).
+- Auto-detecta el idioma del navegador en el primer arranque; la elección se guarda en `localStorage`.
+- Todo localizado: menús, tutorial, tiendas, cartas, mejoras, eventos/avisos, banners y fin de partida.
+
+## Iconos 🖼️
+- Adiós a los emojis del sistema (se veían inconsistentes). Ahora hay un **set de iconos
+  vectoriales propios** dibujado en canvas (`drawIcon`), usado tanto en el juego (parcelas,
+  mall, comerciante, saboteador) como en los menús (vía data-URL cacheada, sin peticiones).
+- Cubre las 12 tiendas, las 13 cartas de mejora, las mejoras meta y los iconos de HUD
+  (dinero, oleada, tiempo, fama, supervivientes, boost…). Cero dependencias externas.
+
 ## Estilo visual 🎨
 Identidad propia "centro comercial neón apocalíptico" (nada de azul-marino genérico):
 - **Paleta**: púrpura profundo de fondo, **magenta** neón (primario), **lima ácido**,

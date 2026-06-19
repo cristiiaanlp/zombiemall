@@ -22,6 +22,16 @@
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+/* vector icons */
+.ui-ico,.inl{vertical-align:middle;display:inline-block;}
+.inl{margin-left:2px;}
+.stat-ico{display:inline-flex;align-items:center;vertical-align:middle;line-height:0;}
+.btn .g{display:inline-block;transform:translateY(1px);}
+.foot-row{display:flex;gap:10px;align-items:center;justify-content:center;}
+.li-ico{display:inline-flex;align-items:center;margin-right:4px;vertical-align:middle;}
+.mc-head{display:flex;align-items:center;gap:8px;margin-bottom:2px;}
+.btn,.boost-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;}
 html,body{
   margin:0;padding:0;height:100%;overflow:hidden;background:#000;
   font-family:var(--font-ui);font-weight:600;

@@ -54,7 +54,7 @@ const sandbox = {
   setInterval:()=>1, clearInterval:()=>{},
   requestAnimationFrame:()=>0,           // prevent real loop
   localStorage:{ _d:{}, getItem(k){return this._d[k]||null;}, setItem(k,v){this._d[k]=v;}, removeItem(k){delete this._d[k];} },
-  navigator:{ maxTouchPoints:0, userAgent:'node-test', platform:'test' },
+  navigator:{ maxTouchPoints:0, userAgent:'node-test', platform:'test', language:'es-ES' },
   location:{ hash:'', href:'http://localhost/' },
   AudioContext: function(){ return { state:'running', currentTime:0, resume(){}, destination:{},
     createOscillator(){ return {type:'',frequency:{value:0},connect(){},start(){},stop(){}}; },
@@ -67,8 +67,9 @@ sandbox.window.innerWidth = 800; sandbox.window.innerHeight = 450;
 sandbox.window.addEventListener = (ev,f)=>{ (listeners[ev]=listeners[ev]||[]).push(f); };
 sandbox.document = {
   getElementById:getEl,
-  createElement:()=>makeEl('dyn'),
-  addEventListener(){}, body:makeEl('body'),
+  createElement:(tag)=>{ const el=makeEl('dyn'); if((tag+'').toLowerCase()==='canvas'){ el.getContext=()=>ctxProxy; el.toDataURL=()=>'data:image/png;base64,'; el.width=0; el.height=0; } return el; },
+  querySelectorAll:()=>[],
+  addEventListener(){}, body:makeEl('body'), documentElement:{lang:'es'}, hidden:false,
 };
 sandbox.CrazyGames = undefined; // simulate no SDK -> graceful fallback
 
