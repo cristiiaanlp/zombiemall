@@ -30,11 +30,11 @@ const STORES = [
 
 // Enemy archetypes (see GDD §8). Stats are multiplied by wave scaling at spawn.
 const ENEMIES = {
-  shambler:{ name:'Shambler', r:13, hpMul:1.0, spd:38,  dmg:1.0, color:'#7fae5a', bounty:1.0, fromWave:1 },
-  runner:  { name:'Runner',   r:11, hpMul:0.7, spd:95,  dmg:0.8, color:'#caa54a', bounty:1.1, fromWave:3 },
-  brute:   { name:'Brute',    r:22, hpMul:3.4, spd:30,  dmg:1.8, color:'#5a8f6a', bounty:2.6, fromWave:5 },
-  spitter: { name:'Spitter',  r:13, hpMul:1.0, spd:34,  dmg:1.0, color:'#9b6ad6', bounty:1.5, fromWave:6, ranged:true },
-  bloater: { name:'Bloater',  r:18, hpMul:2.0, spd:30,  dmg:1.4, color:'#88b04a', bounty:2.0, fromWave:8, explodes:true },
+  shambler:{ name:'Shambler', r:13, hpMul:1.0, spd:38,  dmg:1.0, color:'#86d44a', bounty:1.0, fromWave:1 },
+  runner:  { name:'Runner',   r:11, hpMul:0.7, spd:95,  dmg:0.8, color:'#ffd23f', bounty:1.1, fromWave:3 },
+  brute:   { name:'Brute',    r:22, hpMul:3.4, spd:30,  dmg:1.8, color:'#3fae86', bounty:2.6, fromWave:5 },
+  spitter: { name:'Spitter',  r:13, hpMul:1.0, spd:34,  dmg:1.0, color:'#cf7bff', bounty:1.5, fromWave:6, ranged:true },
+  bloater: { name:'Bloater',  r:18, hpMul:2.0, spd:30,  dmg:1.4, color:'#b6ff3b', bounty:2.0, fromWave:8, explodes:true },
 };
 
 // Level-up cards (weapon + passive). Some are "rare".
@@ -1006,9 +1006,8 @@ function render(){
   if(Game.shake>0){ sx=(Math.random()-0.5)*Game.shake; sy=(Math.random()-0.5)*Game.shake; }
   ctx.translate(sx,sy);
 
-  // floor
-  ctx.fillStyle='#10131f'; ctx.fillRect(0,0,W,H);
-  drawFloorGrid();
+  // neon mall floor
+  drawBackground();
 
   // mall atrium (center) — tier by store count
   drawMall();
@@ -1016,8 +1015,11 @@ function render(){
   // plots
   for(const p of Game.plots) drawPlot(p);
 
-  // gems
-  for(const g of Game.gems){ ctx.fillStyle='#5dff8f'; ctx.beginPath(); ctx.arc(g.x,g.y,5,0,7); ctx.fill(); }
+  // gems (acid lime, with glow)
+  for(const g of Game.gems){
+    ctx.fillStyle='rgba(182,255,59,.25)'; ctx.beginPath(); ctx.arc(g.x,g.y,9,0,7); ctx.fill();
+    ctx.fillStyle='#d6ff7a'; ctx.beginPath(); ctx.arc(g.x,g.y,4,0,7); ctx.fill();
+  }
 
   // trader stall
   if(Game.trader) drawTrader();
@@ -1039,9 +1041,11 @@ function render(){
   // spits
   for(const sp of Game.spits){ ctx.fillStyle='#b388ff'; ctx.beginPath(); ctx.arc(sp.x,sp.y,6,0,7); ctx.fill(); }
 
-  // bullets
-  ctx.fillStyle='#ffe98a';
-  for(const b of Game.bullets){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill(); }
+  // bullets (cyan tracer + halo)
+  for(const b of Game.bullets){
+    ctx.fillStyle='rgba(34,224,255,.30)'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r+4,0,7); ctx.fill();
+    ctx.fillStyle='#d6f9ff'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,7); ctx.fill();
+  }
 
   // player
   drawPlayer();
@@ -1051,66 +1055,84 @@ function render(){
   ctx.globalAlpha=1;
 
   // floating texts
-  ctx.textAlign='center'; ctx.font='bold 12px Trebuchet MS';
-  for(const t of Game.texts){ ctx.globalAlpha=Math.max(0,t.life*1.4); ctx.fillStyle=t.color; ctx.font='bold '+t.size+'px Trebuchet MS'; ctx.fillText(t.txt,t.x,t.y); }
+  ctx.textAlign='center'; ctx.font='bold 12px Rajdhani';
+  for(const t of Game.texts){ ctx.globalAlpha=Math.max(0,t.life*1.4); ctx.fillStyle=t.color; ctx.font='bold '+t.size+'px Rajdhani'; ctx.fillText(t.txt,t.x,t.y); }
   ctx.globalAlpha=1;
 
   ctx.restore();
 }
 
-function drawFloorGrid(){
-  ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
+function drawBackground(){
+  // deep purple gradient base
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1d0c30'); g.addColorStop(1,'#0d0617');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // neon tile grid (magenta + cyan offset for depth)
+  ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(255,46,136,.055)';
   for(let x=0;x<=W;x+=64){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   for(let y=0;y<=H;y+=64){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.strokeStyle='rgba(34,224,255,.04)';
+  for(let x=32;x<=W;x+=64){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  // warm glow under the mall atrium
+  const rg=ctx.createRadialGradient(CX,CY,40,CX,CY,460);
+  rg.addColorStop(0,'rgba(255,46,136,.12)'); rg.addColorStop(0.5,'rgba(124,40,160,.06)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
 }
 
 function drawMall(){
   const built = Game.plots.filter(p=>p.store).length;
   const tier = built>=9?3:built>=5?2:built>=1?1:0;
-  const colors=['#2a2030','#3a2d4a','#2d4a55','#4a3d22'];
-  const glow=['#000','#6a4a8a','#36e0c8','#ffcf3f'];
+  const colors=['#2a1838','#3a1d52','#2d2a5e','#4a2a52'];
+  const glow=['#3a2150','#a24adf','#22e0ff','#ffc23c'];
+  const signCol=['#7a6699','#c98aff','#22e0ff','#ffc23c'][tier];
   ctx.save();
-  ctx.shadowColor=glow[tier]; ctx.shadowBlur=tier*12;
+  ctx.shadowColor=glow[tier]; ctx.shadowBlur=10+tier*10;
   ctx.fillStyle=colors[tier];
   roundRect(CX-110,CY-78,220,156,16); ctx.fill();
+  // neon edge
+  ctx.shadowBlur=tier*6; ctx.strokeStyle=glow[tier]; ctx.lineWidth=2;
+  roundRect(CX-110,CY-78,220,156,16); ctx.stroke();
   ctx.shadowBlur=0;
   // roof sign
-  ctx.fillStyle=tier>=2?'#36e0c8':'#6a7299';
-  ctx.font='bold 22px Trebuchet MS'; ctx.textAlign='center';
-  ctx.fillText('🏬',CX,CY-20);
-  ctx.fillStyle='#dfe7ff'; ctx.font='bold 13px Trebuchet MS';
-  ctx.fillText('MALL',CX,CY+6);
-  ctx.fillStyle='#8b96b8'; ctx.font='11px Trebuchet MS';
-  ctx.fillText(['ABANDONADO','OPERATIVO','FORTIFICADO','MEGA-MALL'][tier],CX,CY+26);
+  ctx.fillStyle=signCol;
+  ctx.font='22px Rajdhani'; ctx.textAlign='center';
+  ctx.fillText('🏬',CX,CY-22);
+  ctx.fillStyle='#fff'; ctx.font='16px Bungee';
+  ctx.shadowColor=signCol; ctx.shadowBlur=tier>=1?12:0;
+  ctx.fillText('MALL',CX,CY+4);
+  ctx.shadowBlur=0;
+  ctx.fillStyle=signCol; ctx.font='600 11px Rajdhani';
+  ctx.fillText(['ABANDONADO','OPERATIVO','FORTIFICADO','MEGA-MALL'][tier],CX,CY+24);
   ctx.restore();
 }
 
 function drawPlot(p){
   if(p.store){
     const def=STORES.find(s=>s.id===p.store);
-    const tierGlow = p.lvl>=4?'#ffcf3f':p.lvl>=2?'#36e0c8':'#5a6a99';
+    const tierGlow = p.lvl>=4?'#ffc23c':p.lvl>=2?'#22e0ff':'#a24adf';
     ctx.save();
-    ctx.shadowColor=tierGlow; ctx.shadowBlur=8;
-    ctx.fillStyle='#222a40'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
+    ctx.shadowColor=tierGlow; ctx.shadowBlur=10;
+    ctx.fillStyle='#2a1840'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
+    ctx.shadowBlur=0; ctx.strokeStyle=tierGlow; ctx.lineWidth=1.5; roundRect(p.x-30,p.y-30,60,60,10); ctx.stroke();
     ctx.shadowBlur=0;
-    ctx.font='28px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='28px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(def.ico,p.x,p.y-2);
     // level pips
     for(let i=0;i<5;i++){ ctx.fillStyle=i<p.lvl?tierGlow:'#39435f'; ctx.fillRect(p.x-22+i*9,p.y+18,7,4); }
     // saboteur disabled overlay
     if(p.disabledT>0){
       ctx.fillStyle='rgba(255,40,60,'+(0.25+0.15*Math.sin(Game.time*10))+')'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='16px Trebuchet MS'; ctx.fillText('⚠',p.x,p.y-22);
+      ctx.fillStyle='#fff'; ctx.font='16px Rajdhani'; ctx.fillText('⚠',p.x,p.y-22);
     }
     ctx.textBaseline='alphabetic';
     ctx.restore();
   } else {
-    // empty plot — pulsing if affordable cheapest store
-    const t=(Game.time*2)%2;
-    const pulse=0.4+0.3*Math.sin(Game.time*4);
-    ctx.strokeStyle=`rgba(54,224,200,${pulse})`; ctx.lineWidth=2.5; ctx.setLineDash([6,6]);
+    // empty plot — pulsing neon "build here" marker
+    const pulse=0.45+0.35*Math.sin(Game.time*4);
+    ctx.strokeStyle=`rgba(255,46,136,${pulse})`; ctx.lineWidth=2.5; ctx.setLineDash([6,6]);
     roundRect(p.x-28,p.y-28,56,56,10); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle=`rgba(54,224,200,${pulse})`; ctx.font='22px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=`rgba(34,224,255,${pulse})`; ctx.font='bold 22px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('+',p.x,p.y); ctx.textBaseline='alphabetic';
   }
 }
@@ -1186,7 +1208,7 @@ function drawZombie(z){
   // type accents
   if(z.type==='spitter'){ ctx.fillStyle='#5b2a8a'; ctx.beginPath(); ctx.arc(0,-z.r*0.45,z.r*0.2,0,7); ctx.fill(); }
   if(z.type==='bloater'){ ctx.fillStyle='rgba(180,230,120,.5)'; ctx.beginPath(); ctx.arc(0,z.r*0.05,z.r*0.7+Math.sin(Game.time*4)*1.5,0,7); ctx.fill(); }
-  if(z.saboteur||z.sabotaged){ ctx.fillStyle='#fff'; ctx.font='bold '+(11*s)+'px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('🔧',0,-z.r*1.25); }
+  if(z.saboteur||z.sabotaged){ ctx.fillStyle='#fff'; ctx.font='bold '+(11*s)+'px Rajdhani'; ctx.textAlign='center'; ctx.fillText('🔧',0,-z.r*1.25); }
   if(z.boss){
     ctx.fillStyle='#16306e'; roundRect(-z.r*0.55,-z.r*1.25,z.r*1.1,z.r*0.4,2*s); ctx.fill();
     ctx.fillStyle='#ffcf3f'; ctx.beginPath(); ctx.arc(0,-z.r*1.05,z.r*0.13,0,7); ctx.fill();
@@ -1198,7 +1220,7 @@ function drawZombie(z){
     ctx.fillStyle='#400'; ctx.fillRect(z.x-z.r,z.y-z.r-12,w,4);
     ctx.fillStyle=z.boss?'#ff4d5e':'#5dff8f'; ctx.fillRect(z.x-z.r,z.y-z.r-12,hpw,4);
   }
-  if(z.boss){ ctx.fillStyle='#fff'; ctx.font='bold 12px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('👮 THE MALL COP', z.x, z.y-z.r-18); }
+  if(z.boss){ ctx.fillStyle='#fff'; ctx.font='bold 12px Rajdhani'; ctx.textAlign='center'; ctx.fillText('👮 THE MALL COP', z.x, z.y-z.r-18); }
 }
 
 function drawSurvivor(o, phase, isArrival){
@@ -1209,7 +1231,7 @@ function drawSurvivor(o, phase, isArrival){
   if(!isArrival){ // little rifle
     ctx.save(); ctx.translate(o.x,o.y-3); ctx.fillStyle='#1f1f1f'; ctx.fillRect(4,-1.5,13,3); ctx.restore();
   } else { // attention marker over arriving survivor
-    ctx.fillStyle='#5dff8f'; ctx.font='bold 13px Trebuchet MS'; ctx.textAlign='center';
+    ctx.fillStyle='#5dff8f'; ctx.font='bold 13px Rajdhani'; ctx.textAlign='center';
     ctx.fillText('!', o.x, o.y-22 + Math.sin(Game.time*6)*2);
   }
 }
@@ -1223,11 +1245,11 @@ function drawTrader(){
   // striped awning
   for(let i=0;i<6;i++){ ctx.fillStyle = i%2? '#c0392b':'#f5f5f5'; ctx.beginPath();
     ctx.moveTo(-24+i*8,-4); ctx.lineTo(-24+(i+1)*8,-4); ctx.lineTo(-24+(i+1)*8-3,-12); ctx.lineTo(-24+i*8-3,-12); ctx.closePath(); ctx.fill(); }
-  ctx.fillStyle='#fff'; ctx.font='15px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='15px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('🛒', 0, 7); ctx.textBaseline='alphabetic';
   // pulsing call-to-action
   const pulse=0.6+0.4*Math.sin(Game.time*5);
-  ctx.fillStyle='rgba(124,230,255,'+pulse+')'; ctx.font='bold 11px Trebuchet MS';
+  ctx.fillStyle='rgba(124,230,255,'+pulse+')'; ctx.font='bold 11px Rajdhani';
   ctx.fillText('COMERCIAR · '+Math.ceil(tr.timer)+'s', 0, -18);
   ctx.restore();
 }
@@ -1235,7 +1257,9 @@ function drawTrader(){
 function drawPlayer(){
   const p=Game.player;
   const hurt = p.hitFlash>0 && Math.floor(p.hitFlash*18)%2===0;
-  drawPerson(p.x, p.y, p.walkT||0, { skin:'#f3c79c', cloth: hurt?'#ff8a9a':'#2fd6bf', outline:'#06342b', s:1.15, arms:'down' });
+  // soft cyan aura so the hero always reads against the crowd
+  ctx.fillStyle='rgba(34,224,255,.18)'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r+9,0,7); ctx.fill();
+  drawPerson(p.x, p.y, p.walkT||0, { skin:'#f3c79c', cloth: hurt?'#ff7a9a':'#22e0ff', outline:'#063a47', s:1.15, arms:'down' });
   // aiming gun on top, rotated toward facing
   ctx.save(); ctx.translate(p.x, p.y-4); ctx.rotate(p.dir);
   ctx.fillStyle='#2a2a2a'; ctx.fillRect(4,-2.2,18,4.4);
@@ -1524,6 +1548,8 @@ async function boot(){
 
   setTimeout(()=>{
     UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens();
+    // dev/testing hook: open index with #play to jump straight into a run
+    if(location.hash.indexOf('play')>=0){ startRun(); }
   }, 350);
 
   requestAnimationFrame(loop);

@@ -38,6 +38,15 @@ en modo standalone para que puedas probar revive / x2 / boost.
 - **Comerciar / cuarentena:** toca el puesto del comerciante o a un aliado superviviente.
 - **Pausa:** `Esc` / `P` / botón ⏸ (también pausa al perder el foco de la pestaña).
 
+## Estilo visual 🎨
+Identidad propia "centro comercial neón apocalíptico" (nada de azul-marino genérico):
+- **Paleta**: púrpura profundo de fondo, **magenta** neón (primario), **lima ácido**,
+  **oro** (dinero) y **cian** (héroe/acentos).
+- **Tipografías**: **Bungee** (rótulos/logo, estilo cartel de mall) + **Rajdhani** (UI/HUD).
+- **Efectos**: glows neón, viñeta, líneas CRT sutiles, rejilla de suelo, fondo animado en menús,
+  sprites con contorno + aura del héroe para máxima legibilidad.
+- Truco de desarrollo: abre `index.html#play` para entrar directo a una partida (para QA/capturas).
+
 ## Móvil 📱
 - **Táctil completo**: joystick virtual + toques para construir, comerciar y poner en cuarentena.
 - **Horizontal**: el arena es 16:9. En **vertical** aparece un aviso "gira el dispositivo" y el
@@ -84,7 +93,10 @@ Todo degrada con elegancia si el SDK no está (try/catch + fallback).
 
 ## Checklist de aceptación CrazyGames
 - [x] HTML5 puro, sin plugins, funciona en iframe.
-- [x] Carga rápida (3 archivos, sin assets pesados ni red externa salvo el SDK).
+- [x] Carga rápida (sin assets pesados). Red externa: solo el **SDK de CrazyGames** y
+      **Google Fonts** (Bungee + Rajdhani, cosméticas, con *fallback* a fuentes del sistema
+      si están bloqueadas/offline). Para 100% self-contained, descarga los `.woff2` y
+      cámbialos por `@font-face` locales en `style.css`.
 - [x] Responsive a cualquier aspecto; **móvil y escritorio**.
 - [x] Pantalla de carga con progreso; sin estados rotos.
 - [x] **Mute** y pausa disponibles; pausa en blur y en anuncios.

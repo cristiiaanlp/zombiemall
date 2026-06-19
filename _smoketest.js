@@ -29,8 +29,15 @@ const els = {};
 function getEl(id){ if(!els[id]) els[id]=makeEl(id); return els[id]; }
 
 // ---- fake canvas ctx via Proxy (every method/prop is a no-op) ----
+const gradientStub = { addColorStop(){} };
 const ctxProxy = new Proxy({}, {
-  get(t,p){ if(p in t) return t[p]; const f=()=>{}; return typeof p==='string' ? (/* property reads */ (p==='canvas')?canvasEl:f) : f; },
+  get(t,p){
+    if(p in t) return t[p];
+    if(p==='canvas') return canvasEl;
+    if(p==='createLinearGradient'||p==='createRadialGradient'||p==='createPattern') return ()=>gradientStub;
+    if(p==='measureText') return ()=>({width:10});
+    return ()=>{};
+  },
   set(){ return true; }
 });
 const canvasEl = makeEl('game-canvas');
