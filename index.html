@@ -78,6 +78,16 @@
         <span id="lvl-text">Lv 1</span>
       </div>
 
+      <!-- Refuge Fame -->
+      <div class="hud-fame">
+        <span id="fame-tier">🕯️ Escondite</span>
+        <div class="fame-bar"><div id="fame-fill"></div></div>
+        <span class="surv">🙋 <span id="surv-text">0</span></span>
+      </div>
+
+      <!-- event toasts -->
+      <div id="toasts"></div>
+
       <!-- mobile joystick -->
       <div id="joystick" class="hidden"><div id="joystick-knob"></div></div>
 
@@ -96,6 +106,16 @@
         <h2 id="build-title">Construir tienda</h2>
         <div id="build-list" class="build-list"></div>
         <button class="btn btn-ghost" id="btn-build-close">Cerrar</button>
+      </div>
+    </div>
+
+    <!-- Trader -->
+    <div id="trader" class="screen modal hidden">
+      <div class="panel">
+        <h2>🚚 Comerciante del refugio</h2>
+        <p class="levelup-sub">Ofertas por tiempo limitado — atraído por tu fama</p>
+        <div id="trader-list" class="build-list"></div>
+        <button class="btn btn-ghost" id="btn-trader-close">Cerrar</button>
       </div>
     </div>
 

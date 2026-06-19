@@ -67,6 +67,21 @@ const META = [
   { id:'pharmaStart',name:'Farmacia base',desc:'Empiezas con Farmacia', max:1, cost:()=>200, val:l=>l },
 ];
 
+/* ===========================================================================
+   REFUGE FAME SYSTEM — the unique core mechanic.
+   Fame is a visible resource that rises with everything the player does.
+   It drives BOTH reward (survivors, traders, supplies) AND risk (hordes,
+   saboteurs, infiltrated infected, refuge-assault bosses). Growth vs Risk.
+   =========================================================================== */
+const FAME_TIERS = [
+  { min:0,    name:'Escondite',          ico:'🕯️', color:'#8b96b8' },
+  { min:120,  name:'Casa segura',        ico:'🏠', color:'#5dff8f' },
+  { min:350,  name:'Refugio conocido',   ico:'📻', color:'#7ce6ff' },
+  { min:800,  name:'Refugio famoso',     ico:'⭐', color:'#ffcf3f' },
+  { min:1700, name:'Bastión legendario', ico:'🏰', color:'#ff9f43' },
+  { min:3400, name:'Faro de esperanza',  ico:'🔥', color:'#ff5e9e' },
+];
+
 /* ---------------------------------------------------------------------------
    1. SAVE / META PERSISTENCE
 --------------------------------------------------------------------------- */
@@ -202,6 +217,11 @@ const Game = {
   boostTimer:0, reviveUsed:false, freeReviveAvail:false,
   comebackTimer:0,
   shake:0,
+  // --- Refuge Fame System ---
+  fame:0, fameTier:0, fameFlash:0,
+  allies:[], arrivals:[], trader:null,
+  arrivalTimer:0, traderTimer:0, eventTimer:0, sabotageTimer:0, fameBossTimer:0,
+  buildDiscount:0, tut:{},
 
   pauseForAd(on){
     if(on){ this._prevState=this.state; this.state='ad'; CG.gameplayStop(); }
@@ -233,7 +253,7 @@ function freshStats(){
 function startRun(){
   const s = freshStats();
   Game.stats = s;
-  Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0 };
+  Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0, walkT:0, lastFire:0 };
   Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[];
   Game.plots = makePlots();
   Game.cash = 50 + META[1].val(Save.metaLvl('startCash'));
@@ -243,6 +263,11 @@ function startRun(){
   Game.boostTimer=0; Game.reviveUsed=false;
   Game.freeReviveAvail = Save.metaLvl('revive')>0;
   Game.comebackTimer=0; Game.shake=0;
+  // refuge fame reset
+  Game.fame=0; Game.fameTier=0; Game.fameFlash=0;
+  Game.allies=[]; Game.arrivals=[]; Game.trader=null;
+  Game.arrivalTimer=7; Game.traderTimer=38; Game.eventTimer=26; Game.sabotageTimer=30; Game.fameBossTimer=30;
+  Game.buildDiscount=0; Game.tut={};
   // meta: start with pharmacy
   if(Save.metaLvl('pharmaStart')>0){ Game.plots[0].store='pharma'; Game.plots[0].lvl=1; }
   recompute();
@@ -283,7 +308,7 @@ function recompute(){
   const b={ dmg:0, rate:0, speed:0, cash:0, xp:0, regen:0, maxhp:0, proj:0, turret:0, pharmaHeal:0, airstrike:0 };
   let income=0;
   for(const p of Game.plots){
-    if(!p.store) continue;
+    if(!p.store || p.disabledT>0) continue;   // saboteur-disabled stores give nothing
     const def = STORES.find(s=>s.id===p.store);
     const lvl = p.lvl;
     income += def.income * Math.pow(1.5, lvl-1);
@@ -376,6 +401,11 @@ function pointerDown(clientX, clientY, id){
   // Did we tap a plot? (build interaction)
   const p = plotAt(w.x, w.y);
   if(p){ openBuild(p); return; }
+  // tap the trader stall -> open trade menu
+  if(Game.trader && dist(w.x,w.y,Game.trader.x,Game.trader.y) < 40){ openTrader(); return; }
+  // tap a survivor ally -> quarantine decision (could be a hidden infected!)
+  const al = allyAt(w.x, w.y);
+  if(al){ quarantineAlly(al); return; }
   // otherwise: movement joystick (mainly touch / left side)
   if(isTouch){
     Input.joy.active=true; Input.joy.id=id; Input.joy.ox=clientX; Input.joy.oy=clientY; Input.joy.dx=0; Input.joy.dy=0;
@@ -413,30 +443,59 @@ function plotAt(x,y){
 /* ---------------------------------------------------------------------------
    10. SPAWNING / WAVES
 --------------------------------------------------------------------------- */
-function spawnInterval(){ return Math.max(0.16, 1.0 - Game.wave*0.045) * (Game.comebackTimer>0?1.5:1); }
+// Fame "heat": higher fame attracts more & tougher zombies (Growth vs Risk).
+function threat(){ return 1 + Game.fame/650; }
+function fameMul(){ return 1 + Game.fame/2600; }
+function spawnInterval(){ return Math.max(0.13, (1.0 - Game.wave*0.045)) / threat() * (Game.comebackTimer>0?1.6:1); }
+
+function edgeSpawn(){
+  const edge = Math.floor(Math.random()*4);
+  if(edge===0) return {x:Math.random()*W, y:-30};
+  if(edge===1) return {x:W+30, y:Math.random()*H};
+  if(edge===2) return {x:Math.random()*W, y:H+30};
+  return {x:-30, y:Math.random()*H};
+}
 
 function spawnZombie(type, isBoss){
   const def = ENEMIES[type] || ENEMIES.shambler;
-  // spawn from a random edge
-  const edge = Math.floor(Math.random()*4);
-  let x,y;
-  if(edge===0){ x=Math.random()*W; y=-30; }
-  else if(edge===1){ x=W+30; y=Math.random()*H; }
-  else if(edge===2){ x=Math.random()*W; y=H+30; }
-  else { x=-30; y=Math.random()*H; }
-  const waveHp = 10 * Math.pow(1.12, Game.wave);
+  const sp = edgeSpawn();
+  const fm = fameMul();
+  const waveHp = 10 * Math.pow(1.12, Game.wave) * fm;
   const z = {
-    type, x, y, r:def.r, color:def.color,
+    type, x:sp.x, y:sp.y, r:def.r, color:def.color, wob:Math.random()*7,
     hp: waveHp*def.hpMul*(isBoss?40:1),
     maxHp: waveHp*def.hpMul*(isBoss?40:1),
     spd: def.spd*(isBoss?0.7:1),
-    dmg: (4+Game.wave*0.6)*def.dmg*(isBoss?2.5:1),
+    dmg: (4+Game.wave*0.6)*def.dmg*fm*(isBoss?2.5:1),
     bounty: def.bounty*(isBoss?60:1)*(1+Game.wave*0.05),
     hitFlash:0, atkCd:0, ranged:def.ranged, explodes:def.explodes, boss:isBoss||false,
-    r2: isBoss? def.r*2.4 : def.r,
   };
   if(isBoss){ z.r=def.r*2.4; z.color='#c0392b'; z.name='THE MALL COP'; }
   Game.zombies.push(z);
+}
+
+// Saboteur: ignores the player, rushes a built store and disables it for 12s.
+function spawnSaboteur(){
+  const targets = Game.plots.filter(p=>p.store && !(p.disabledT>0));
+  if(!targets.length) return;
+  const tp = targets[Math.floor(Math.random()*targets.length)];
+  const sp = edgeSpawn(), fm = fameMul();
+  const waveHp = 10 * Math.pow(1.12, Game.wave) * fm;
+  Game.zombies.push({ type:'saboteur', saboteur:true, targetPlot:tp, x:sp.x, y:sp.y, r:12,
+    color:'#d14b8f', wob:Math.random()*7,
+    hp:waveHp*1.4, maxHp:waveHp*1.4, spd:118,
+    dmg:(4+Game.wave*0.6)*fm, bounty:5*(1+Game.wave*0.05), hitFlash:0, atkCd:0 });
+  if(!Game.tut.sab){ Game.tut.sab=1; toast('🕵️ ¡SABOTEADOR! Corre a por tus tiendas — ¡intercéptalo!','#ff5e9e'); }
+}
+
+// Turncoat: an infiltrated infected "survivor" that turns INSIDE the refuge.
+function spawnTurncoat(x,y){
+  const fm = fameMul(); const waveHp = 10 * Math.pow(1.12, Game.wave) * fm;
+  Game.zombies.push({ type:'turncoat', x, y, r:15, color:'#a83246', wob:Math.random()*7,
+    hp:waveHp*3, maxHp:waveHp*3, spd:72, dmg:(6+Game.wave*0.7)*fm,
+    bounty:8*(1+Game.wave*0.05), hitFlash:0, atkCd:0 });
+  Game.shake=10; Audio2.boss();
+  toast('🧟 ¡Un superviviente era un INFILTRADO INFECTADO!','#ff4d5e');
 }
 
 function pickEnemyType(){
@@ -470,6 +529,11 @@ function update(dt){
   Game.waveTimer += dt;
   if(Game.waveTimer >= 45) nextWave();
 
+  // passive fame: a bigger, busier refuge gets noticed
+  const storesBuilt = Game.plots.filter(pl=>pl.store).length;
+  addFame(dt*(0.35 + 0.05*storesBuilt + 0.04*Game.allies.length));
+  if(Game.fameFlash>0) Game.fameFlash-=dt;
+
   // boost timer
   if(Game.boostTimer>0){ Game.boostTimer-=dt; if(Game.boostTimer<=0) recompute(); }
   if(Game.shake>0) Game.shake=Math.max(0,Game.shake-dt*60);
@@ -490,7 +554,7 @@ function update(dt){
   p.x += mv.x * e.spd * dt;
   p.y += mv.y * e.spd * dt;
   p.x = clamp(p.x, 16, W-16); p.y = clamp(p.y, 16, H-16);
-  if(mv.x||mv.y) p.dir = Math.atan2(mv.y,mv.x);
+  if(mv.x||mv.y){ p.dir = Math.atan2(mv.y,mv.x); p.walkT += dt*12; }
   if(p.hitFlash>0) p.hitFlash-=dt;
 
   // --- player auto fire ---
@@ -498,11 +562,16 @@ function update(dt){
   if(p.fireCd<=0){
     const target = nearestZombie(p.x,p.y,e.range);
     if(target){
+      p.dir = Math.atan2(target.y-p.y, target.x-p.x);
       fireWeapon(p.x,p.y,target,e);
       p.fireCd = 1/e.rate;
+      p.lastFire = Game.time;
       Audio2.shoot();
     }
   }
+
+  // --- refuge fame director (arrivals, allies, traders, saboteurs, events) ---
+  updateRefuge(dt);
 
   // --- turrets ---
   for(const t of Game.turrets){
@@ -570,6 +639,23 @@ function update(dt){
   for(let i=Game.zombies.length-1;i>=0;i--){
     const z=Game.zombies[i];
     if(z.hitFlash>0) z.hitFlash-=dt;
+    // saboteur: rush the target store, disable it, then turn on the player
+    if(z.saboteur && z.targetPlot){
+      const tp=z.targetPlot;
+      const sa=Math.atan2(tp.y-z.y, tp.x-z.x);
+      z.x+=Math.cos(sa)*z.spd*dt; z.y+=Math.sin(sa)*z.spd*dt;
+      if(dist(z.x,z.y,tp.x,tp.y) < 34){
+        if(tp.store && !(tp.disabledT>0)){
+          tp.disabledT=12; recompute(); Game.shake=8;
+          for(let k=0;k<16;k++) spawnParticle(tp.x,tp.y,'#ff8a3c');
+          toast('💥 ¡'+STORES.find(s2=>s2.id===tp.store).name+' saboteada! (-ingresos)','#ff4d5e');
+        }
+        z.saboteur=false; z.sabotaged=true; z.spd=70;  // now hunts the player
+      }
+      const dp=dist(z.x,z.y,p.x,p.y);
+      if(dp<z.r+p.r){ z.atkCd-=dt; if(z.atkCd<=0){ hurtPlayer(z.dmg); z.atkCd=0.6; } }
+      continue;
+    }
     const ang=Math.atan2(p.y-z.y, p.x-z.x);
     const d=dist(z.x,z.y,p.x,p.y);
     if(z.ranged && d<340){
@@ -647,6 +733,9 @@ function killZombie(z){
   Game.cash += gain;
   addText(z.x,z.y,'+$'+gain,'#ffcf3f',13);
   Audio2.coin();
+  // fame from notoriety of the kill
+  addFame(0.12 + Game.wave*0.01);
+  if(z.saboteur || z.sabotaged){ Game.cash+=20+Game.wave*5; addText(z.x,z.y-22,'¡SABOTEADOR!','#ff5e9e',14); addFame(6); }
   // xp gem
   Game.gems.push({x:z.x,y:z.y,val: z.boss?40: (1+Math.floor(Game.wave*0.2)) });
   // particles
@@ -655,6 +744,7 @@ function killZombie(z){
   if(Game.stats.lifesteal>0){ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+Game.stats.lifesteal); }
   if(z.explodes){ explode(z.x,z.y,60, 8+Game.wave); spawnZombie('shambler',false); spawnZombie('shambler',false); }
   if(z.boss){ Game.bossesKilled++; Game.cash+=200+Game.wave*20; Game.shake=14; addText(z.x,z.y-30,'BOSS!','#ff4d5e',24);
+    addFame(120);
     // guaranteed level up reward
     gainXp(Game.xpNext); }
 }
@@ -713,6 +803,179 @@ function spawnParticle(x,y,color){
   Game.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.4+Math.random()*0.3,color,r:2+Math.random()*2});
 }
 function addText(x,y,txt,color,size){ if(Game.texts.length>120) return; Game.texts.push({x,y,txt:String(txt),color,size:size||12,life:0.7}); }
+// darken/lighten a #hex color -> rgb() string
+function shade(hex, amt){
+  let c=(''+hex).replace('#',''); if(c.length===3) c=c.split('').map(x=>x+x).join('');
+  const r=clamp(parseInt(c.slice(0,2),16)+amt,0,255)|0, g=clamp(parseInt(c.slice(2,4),16)+amt,0,255)|0, b=clamp(parseInt(c.slice(4,6),16)+amt,0,255)|0;
+  return 'rgb('+r+','+g+','+b+')';
+}
+
+/* ---------------------------------------------------------------------------
+   12b. REFUGE FAME SYSTEM — director, survivors, traders, events
+--------------------------------------------------------------------------- */
+function fameTierIndex(){
+  let idx=0;
+  for(let i=0;i<FAME_TIERS.length;i++){ if(Game.fame>=FAME_TIERS[i].min) idx=i; }
+  return idx;
+}
+function addFame(v){
+  Game.fame = Math.max(0, Game.fame + v);
+  const idx = fameTierIndex();
+  if(idx > Game.fameTier){
+    Game.fameTier = idx; Game.fameFlash = 1.6;
+    const t = FAME_TIERS[idx];
+    showWaveBanner(t.ico+' '+t.name.toUpperCase());
+    toast('Tu refugio es ahora: '+t.name+' — llegan más aliados… y más peligro.', t.color);
+    Audio2.levelup();
+  }
+}
+
+// transient on-screen event messages (DOM toasts)
+function toast(msg, color){
+  const box = $('toasts'); if(!box) return;
+  const el = document.createElement('div');
+  el.className='toast'; el.textContent=msg; el.style.borderColor=color||'#36e0c8';
+  box.appendChild(el);
+  while(box.children.length>4) box.removeChild(box.firstChild);
+  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },400); }, 3400);
+}
+
+function updateRefuge(dt){
+  const e=eff(), p=Game.player, tier=fameTierIndex();
+
+  // disabled-store repair timers
+  for(const pl of Game.plots){
+    if(pl.disabledT>0){ pl.disabledT-=dt; if(pl.disabledT<=0){ pl.disabledT=0; recompute(); toast('🔧 Tienda reparada y operativa.','#5dff8f'); } }
+  }
+
+  // arriving survivors walk toward the mall (can be devoured en route)
+  for(let i=Game.arrivals.length-1;i>=0;i--){
+    const a=Game.arrivals[i];
+    const da=Math.atan2(CY-a.y, CX-a.x);
+    a.x+=Math.cos(da)*74*dt; a.y+=Math.sin(da)*74*dt;
+    let eaten=false;
+    for(const z of Game.zombies){ if(dist(z.x,z.y,a.x,a.y) < z.r+10){ eaten=true; break; } }
+    if(eaten){ Game.arrivals.splice(i,1); for(let k=0;k<8;k++) spawnParticle(a.x,a.y,'#ff4d5e'); toast('💀 Un superviviente fue devorado antes de llegar.','#ff4d5e'); addFame(-5); continue; }
+    if(dist(a.x,a.y,CX,CY) < 118){ Game.arrivals.splice(i,1); joinAlly(a.infected); }
+  }
+
+  // allies: shoot + infected ones eventually turn
+  for(let i=Game.allies.length-1;i>=0;i--){
+    const al=Game.allies[i];
+    al.cd-=dt;
+    if(al.cd<=0){ const tg=nearestZombie(al.x,al.y,250); if(tg){ fireBullet(al.x,al.y,tg.x,tg.y, e.dmg*0.45,0,false); al.cd=0.7; } }
+    if(al.infected){ al.turnTimer-=dt; if(al.turnTimer<=0){ spawnTurncoat(al.x,al.y); Game.allies.splice(i,1); } }
+  }
+
+  // arrivals director — rate scales with fame
+  Game.arrivalTimer-=dt;
+  if(Game.arrivalTimer<=0){
+    Game.arrivalTimer = Math.max(6, 22 - tier*3) + Math.random()*6;
+    if(Game.allies.length + Game.arrivals.length < 14) spawnArrival();
+  }
+
+  // trader director
+  if(Game.trader){
+    Game.trader.timer-=dt;
+    if(Game.trader.timer<=0){ Game.trader=null; toast('🚚 El comerciante se marchó.','#8b96b8'); }
+  } else {
+    Game.traderTimer-=dt;
+    if(Game.traderTimer<=0 && tier>=1){ Game.traderTimer = Math.max(24, 55 - tier*4) + Math.random()*15; spawnTrader(tier); }
+  }
+
+  // saboteur director (tier >= 2)
+  if(tier>=2){
+    Game.sabotageTimer-=dt;
+    if(Game.sabotageTimer<=0){ Game.sabotageTimer = Math.max(14, 40 - tier*4) + Math.random()*10; spawnSaboteur(); }
+  }
+
+  // random events
+  Game.eventTimer-=dt;
+  if(Game.eventTimer<=0){ Game.eventTimer = Math.max(16, 34 - tier*2) + Math.random()*12; fireRandomEvent(tier); }
+
+  // refuge-assault boss (tier >= 3)
+  if(tier>=3){
+    Game.fameBossTimer-=dt;
+    if(Game.fameBossTimer<=0){ Game.fameBossTimer = Math.max(45, 95 - tier*9) + Math.random()*20; spawnFameBoss(); }
+  } else { Game.fameBossTimer = 30; }
+}
+
+function spawnArrival(){
+  const sp=edgeSpawn(), tier=fameTierIndex();
+  const infChance = Math.min(0.45, 0.04 + tier*0.07);  // famous refuges attract infiltrators
+  Game.arrivals.push({ x:sp.x, y:sp.y, infected: Math.random()<infChance });
+  if(!Game.tut.arr){ Game.tut.arr=1; toast('🙋 Un superviviente busca refugio. Protégelo hasta el mall (¡cuidado con infiltrados!).','#5dff8f'); }
+}
+
+function joinAlly(infected){
+  const a=Math.random()*Math.PI*2, r=118+Math.random()*32;
+  Game.allies.push({ x:CX+Math.cos(a)*r, y:CY+Math.sin(a)*r, cd:Math.random()*0.7, infected:!!infected, turnTimer:14+Math.random()*16 });
+  addFame(15);
+  Audio2.coin();
+  // same neutral message whether infected or not -> tension/paranoia
+  toast('🙂 Un superviviente se unió a tu refugio.', '#5dff8f');
+}
+function joinAllyClean(){  // mercenary from trader — never infected
+  const a=Math.random()*Math.PI*2, r=118+Math.random()*32;
+  Game.allies.push({ x:CX+Math.cos(a)*r, y:CY+Math.sin(a)*r, cd:0, infected:false, turnTimer:0 });
+}
+function allyAt(x,y){ for(const al of Game.allies){ if(dist(x,y,al.x,al.y)<18) return al; } return null; }
+function quarantineAlly(al){
+  const idx=Game.allies.indexOf(al); if(idx<0) return;
+  Game.allies.splice(idx,1);
+  for(let k=0;k<10;k++) spawnParticle(al.x,al.y,'#7ce6ff');
+  if(al.infected){ toast('✅ ¡Era un infiltrado infectado! Cuarentena a tiempo.','#5dff8f'); addFame(10); }
+  else { toast('😢 Estaba sano… perdiste un aliado por desconfianza.','#ff9f43'); addFame(-8); }
+  Audio2.hit();
+}
+
+function spawnTrader(tier){
+  Game.trader = { x:CX, y:CY-108, timer:35, deals: makeTraderDeals(tier) };
+  if(!Game.tut.trader){ Game.tut.trader=1; toast('🚚 Un comerciante montó su puesto. ¡Tócalo para comerciar!','#7ce6ff'); }
+  else toast('🚚 ¡Comerciante en el refugio!','#7ce6ff');
+  Audio2.build();
+}
+function makeTraderDeals(tier){
+  const w=Game.wave;
+  const all=[
+    { ico:'❤️', name:'Botiquín',        desc:'Cura completa',                 cost:60+w*10,  apply:()=>{ Game.stats.hp=eff().maxHp; } },
+    { ico:'🎯', name:'Munición pesada',  desc:'+1 proyectil permanente',       cost:200+w*30, apply:()=>{ Game.stats.projAdd+=1; recompute(); } },
+    { ico:'💪', name:'Mercenario',       desc:'Aliado de combate (sano)',      cost:150+w*25, apply:()=>{ joinAllyClean(); } },
+    { ico:'🛡️', name:'Chaleco',          desc:'+40 vida máxima',               cost:120+w*20, apply:()=>{ Game.stats.maxHp+=40; Game.stats.hp+=40; } },
+    { ico:'🏷️', name:'Descuento',        desc:'-50% próxima tienda',           cost:80+w*10,  apply:()=>{ Game.buildDiscount=0.5; toast('🏷️ Próxima tienda al 50%','#ffcf3f'); } },
+    { ico:'🔫', name:'Mejora de daño',   desc:'+15% daño permanente',          cost:180+w*25, apply:()=>{ Game.stats.dmgMult+=0.15; recompute(); } },
+  ];
+  const n=Math.min(all.length, 3 + (tier>=3?1:0));
+  return all.slice().sort(()=>Math.random()-0.5).slice(0,n).map(d=>({ ...d, sold:false }));
+}
+
+function fireRandomEvent(tier){
+  const pos=[
+    ()=>{ const amt=40+Game.wave*15; Game.cash+=amt; toast('📦 Llega un convoy de suministros: +$'+amt,'#ffcf3f'); addFame(8); },
+    ()=>{ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+eff().maxHp*0.5); toast('💊 Médicos voluntarios: +50% vida','#5dff8f'); },
+    ()=>{ Game.boostTimer=Math.max(Game.boostTimer,30); recompute(); toast('🎉 Moral por las nubes: x2 ingresos 30s','#ff5e9e'); },
+  ];
+  const neg=[
+    ()=>megaHorde(),
+    ()=>spawnSaboteur(),
+    ()=>{ const steal=Math.min(Game.cash, Math.round(Game.cash*0.15)); Game.cash-=steal; addFame(-10); toast('🏴 Saqueadores roban $'+steal+' atraídos por tu fama','#ff4d5e'); },
+  ];
+  const negChance = Math.min(0.7, 0.2 + tier*0.1);
+  const pool = (Math.random()<negChance) ? neg : pos;
+  pool[Math.floor(Math.random()*pool.length)]();
+}
+function megaHorde(){
+  const n = 10 + Game.wave*2 + fameTierIndex()*5;
+  for(let i=0;i<n && Game.zombies.length<300;i++) spawnZombie(pickEnemyType(), false);
+  showWaveBanner('☣ HORDA ATRAÍDA POR TU FAMA');
+  Audio2.boss(); Game.shake=12;
+  if(!Game.tut.horde){ Game.tut.horde=1; toast('Tu fama atrae hordas masivas. Crecer rápido tiene un precio.','#ff9f43'); }
+}
+function spawnFameBoss(){
+  spawnZombie('brute', true);
+  showWaveBanner('⚠ ASALTO AL REFUGIO');
+  Audio2.boss(); Game.shake=14;
+}
 
 /* ---------------------------------------------------------------------------
    13. RENDER
@@ -738,8 +1001,19 @@ function render(){
   // gems
   for(const g of Game.gems){ ctx.fillStyle='#5dff8f'; ctx.beginPath(); ctx.arc(g.x,g.y,5,0,7); ctx.fill(); }
 
-  // turrets
-  for(const t of Game.turrets){ ctx.fillStyle='#9fb0ff'; ctx.fillRect(t.x-7,t.y-7,14,14); ctx.fillStyle='#33405f'; ctx.fillRect(t.x-2,t.y-12,4,10); }
+  // trader stall
+  if(Game.trader) drawTrader();
+
+  // recruited survivors (allies) + arriving survivors
+  for(const al of Game.allies) drawSurvivor(al, Game.time*2, false);
+  for(const a of Game.arrivals) drawSurvivor(a, Game.time*6, true);
+
+  // turrets (Security store)
+  for(const t of Game.turrets){
+    ctx.fillStyle='#33405f'; roundRect(t.x-9,t.y-9,18,18,3); ctx.fill();
+    ctx.fillStyle='#9fb0ff'; roundRect(t.x-6,t.y-6,12,12,2); ctx.fill();
+    ctx.fillStyle='#33405f'; ctx.fillRect(t.x-2,t.y-14,4,10);
+  }
 
   // zombies
   for(const z of Game.zombies) drawZombie(z);
@@ -805,6 +1079,11 @@ function drawPlot(p){
     ctx.fillText(def.ico,p.x,p.y-2);
     // level pips
     for(let i=0;i<5;i++){ ctx.fillStyle=i<p.lvl?tierGlow:'#39435f'; ctx.fillRect(p.x-22+i*9,p.y+18,7,4); }
+    // saboteur disabled overlay
+    if(p.disabledT>0){
+      ctx.fillStyle='rgba(255,40,60,'+(0.25+0.15*Math.sin(Game.time*10))+')'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='16px Trebuchet MS'; ctx.fillText('⚠',p.x,p.y-22);
+    }
     ctx.textBaseline='alphabetic';
     ctx.restore();
   } else {
@@ -818,33 +1097,133 @@ function drawPlot(p){
   }
 }
 
-function drawZombie(z){
+// Generic billboard humanoid (legs, body, arms, head) with walk bob.
+// opt: {skin, cloth, outline, s(scale), arms('down'|'fwd'), hunch}
+function drawPerson(x, y, phase, opt){
+  const s = opt.s||1;
+  const bob = Math.sin(phase)*1.6*s;
+  const legSwing = Math.sin(phase)*3.2*s;
   ctx.save();
-  ctx.fillStyle = z.hitFlash>0 ? '#fff' : z.color;
-  ctx.beginPath(); ctx.arc(z.x,z.y,z.r,0,7); ctx.fill();
-  // eyes
-  ctx.fillStyle='#1a1a1a';
-  ctx.beginPath(); ctx.arc(z.x-z.r*0.3,z.y-z.r*0.2,z.r*0.16,0,7); ctx.arc(z.x+z.r*0.3,z.y-z.r*0.2,z.r*0.16,0,7); ctx.fill();
-  // hp bar (only if damaged)
-  if(z.hp<z.maxHp){
-    const w=z.r*2, hpw=w*(z.hp/z.maxHp);
-    ctx.fillStyle='#400'; ctx.fillRect(z.x-z.r,z.y-z.r-8,w,4);
-    ctx.fillStyle=z.boss?'#ff4d5e':'#5dff8f'; ctx.fillRect(z.x-z.r,z.y-z.r-8,hpw,4);
+  ctx.translate(x, y+bob);
+  // ground shadow
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0,13*s,9*s,3.4*s,0,0,7); ctx.fill();
+  // legs
+  ctx.strokeStyle=opt.outline; ctx.lineWidth=3.2*s; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-3*s,5*s); ctx.lineTo(-3*s+legSwing,13*s); ctx.moveTo(3*s,5*s); ctx.lineTo(3*s-legSwing,13*s); ctx.stroke();
+  const hunch = opt.hunch||0;
+  // body
+  ctx.fillStyle=opt.cloth; ctx.strokeStyle=opt.outline; ctx.lineWidth=2*s;
+  roundRect(-7*s,(-6+hunch)*s,14*s,(12)*s,4*s); ctx.fill(); ctx.stroke();
+  // arms
+  ctx.strokeStyle=opt.cloth; ctx.lineWidth=3.4*s;
+  if(opt.arms==='fwd'){
+    const aw=Math.cos(phase)*2*s;
+    ctx.beginPath();
+    ctx.moveTo(-6*s,(-2+hunch)*s); ctx.lineTo(-10*s,(5+hunch)*s+aw);
+    ctx.moveTo(6*s,(-2+hunch)*s);  ctx.lineTo(10*s,(5+hunch)*s-aw);
+    ctx.stroke();
+  } else {
+    const aw=Math.cos(phase)*2.2*s;
+    ctx.beginPath();
+    ctx.moveTo(-6*s,-2*s); ctx.lineTo(-8*s,5*s+aw);
+    ctx.moveTo(6*s,-2*s);  ctx.lineTo(8*s,5*s-aw);
+    ctx.stroke();
   }
-  if(z.boss){ ctx.fillStyle='#fff'; ctx.font='bold 12px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('👮 '+z.name, z.x, z.y-z.r-14); }
+  // head
+  ctx.fillStyle=opt.skin; ctx.strokeStyle=opt.outline; ctx.lineWidth=2*s;
+  ctx.beginPath(); ctx.arc(0,(-12+hunch)*s,6*s,0,7); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawZombie(z){
+  const flash = z.hitFlash>0;
+  const s = z.r/13;
+  const phase = Game.time*(2.2 + z.spd*0.02) + (z.wob||0);
+  const body = flash ? '#ffffff' : z.color;
+  const outline = flash ? '#ffffff' : shade(z.color,-50);
+  ctx.save();
+  ctx.translate(z.x, z.y + Math.sin(phase)*1.5*s);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0,z.r*0.95,z.r*0.8,z.r*0.3,0,0,7); ctx.fill();
+  // legs
+  const legSwing=Math.sin(phase)*3*s;
+  ctx.strokeStyle=outline; ctx.lineWidth=3.2*s; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-3*s,z.r*0.35); ctx.lineTo(-3*s+legSwing,z.r*0.95); ctx.moveTo(3*s,z.r*0.35); ctx.lineTo(3*s-legSwing,z.r*0.95); ctx.stroke();
+  // body (slightly hunched)
+  ctx.fillStyle=body; ctx.strokeStyle=outline; ctx.lineWidth=2*s;
+  roundRect(-z.r*0.55, -z.r*0.35, z.r*1.1, z.r*0.85, 3*s); ctx.fill(); ctx.stroke();
+  // outstretched arms (reaching)
+  ctx.strokeStyle=body; ctx.lineWidth=3.4*s;
+  const armSwing=Math.cos(phase)*2*s;
+  ctx.beginPath();
+  ctx.moveTo(-z.r*0.5,-z.r*0.1); ctx.lineTo(-z.r*0.95, z.r*0.25+armSwing);
+  ctx.moveTo(z.r*0.5,-z.r*0.1);  ctx.lineTo(z.r*0.95, z.r*0.25-armSwing);
+  ctx.stroke();
+  // head
+  ctx.fillStyle=body; ctx.strokeStyle=outline; ctx.lineWidth=2*s;
+  ctx.beginPath(); ctx.arc(0,-z.r*0.75, z.r*0.5,0,7); ctx.fill(); ctx.stroke();
+  // glowing eyes
+  ctx.fillStyle = flash ? '#911' : '#ff3b3b';
+  ctx.beginPath(); ctx.arc(-z.r*0.18,-z.r*0.8,z.r*0.11,0,7); ctx.arc(z.r*0.18,-z.r*0.8,z.r*0.11,0,7); ctx.fill();
+  // type accents
+  if(z.type==='spitter'){ ctx.fillStyle='#5b2a8a'; ctx.beginPath(); ctx.arc(0,-z.r*0.45,z.r*0.2,0,7); ctx.fill(); }
+  if(z.type==='bloater'){ ctx.fillStyle='rgba(180,230,120,.5)'; ctx.beginPath(); ctx.arc(0,z.r*0.05,z.r*0.7+Math.sin(Game.time*4)*1.5,0,7); ctx.fill(); }
+  if(z.saboteur||z.sabotaged){ ctx.fillStyle='#fff'; ctx.font='bold '+(11*s)+'px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('🔧',0,-z.r*1.25); }
+  if(z.boss){
+    ctx.fillStyle='#16306e'; roundRect(-z.r*0.55,-z.r*1.25,z.r*1.1,z.r*0.4,2*s); ctx.fill();
+    ctx.fillStyle='#ffcf3f'; ctx.beginPath(); ctx.arc(0,-z.r*1.05,z.r*0.13,0,7); ctx.fill();
+  }
+  ctx.restore();
+  // hp bar
+  if(z.hp<z.maxHp){
+    const w=z.r*2, hpw=w*Math.max(0,z.hp/z.maxHp);
+    ctx.fillStyle='#400'; ctx.fillRect(z.x-z.r,z.y-z.r-12,w,4);
+    ctx.fillStyle=z.boss?'#ff4d5e':'#5dff8f'; ctx.fillRect(z.x-z.r,z.y-z.r-12,hpw,4);
+  }
+  if(z.boss){ ctx.fillStyle='#fff'; ctx.font='bold 12px Trebuchet MS'; ctx.textAlign='center'; ctx.fillText('👮 THE MALL COP', z.x, z.y-z.r-18); }
+}
+
+function drawSurvivor(o, phase, isArrival){
+  // infected subtle "tell": a brief sickly-green flicker now and then
+  let cloth = isArrival ? '#3f6fd1' : '#4a78d6';
+  if(o.infected){ const fl=0.5+0.5*Math.sin(Game.time*3 + (o.x*0.05)); if(fl>0.84) cloth='#7fae5a'; }
+  drawPerson(o.x, o.y, phase, { skin:'#f0c39b', cloth, outline:'#15294f', s:1, arms:'down' });
+  if(!isArrival){ // little rifle
+    ctx.save(); ctx.translate(o.x,o.y-3); ctx.fillStyle='#1f1f1f'; ctx.fillRect(4,-1.5,13,3); ctx.restore();
+  } else { // attention marker over arriving survivor
+    ctx.fillStyle='#5dff8f'; ctx.font='bold 13px Trebuchet MS'; ctx.textAlign='center';
+    ctx.fillText('!', o.x, o.y-22 + Math.sin(Game.time*6)*2);
+  }
+}
+
+function drawTrader(){
+  const tr=Game.trader; const bob=Math.sin(Game.time*3)*2;
+  ctx.save(); ctx.translate(tr.x, tr.y+bob);
+  // stall counter
+  ctx.fillStyle='#6b4a2a'; ctx.strokeStyle='#3c2912'; ctx.lineWidth=2;
+  roundRect(-24,-4,48,20,4); ctx.fill(); ctx.stroke();
+  // striped awning
+  for(let i=0;i<6;i++){ ctx.fillStyle = i%2? '#c0392b':'#f5f5f5'; ctx.beginPath();
+    ctx.moveTo(-24+i*8,-4); ctx.lineTo(-24+(i+1)*8,-4); ctx.lineTo(-24+(i+1)*8-3,-12); ctx.lineTo(-24+i*8-3,-12); ctx.closePath(); ctx.fill(); }
+  ctx.fillStyle='#fff'; ctx.font='15px Trebuchet MS'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🛒', 0, 7); ctx.textBaseline='alphabetic';
+  // pulsing call-to-action
+  const pulse=0.6+0.4*Math.sin(Game.time*5);
+  ctx.fillStyle='rgba(124,230,255,'+pulse+')'; ctx.font='bold 11px Trebuchet MS';
+  ctx.fillText('COMERCIAR · '+Math.ceil(tr.timer)+'s', 0, -18);
   ctx.restore();
 }
 
 function drawPlayer(){
   const p=Game.player;
-  ctx.save();
-  // body
-  ctx.fillStyle = p.hitFlash>0 ? '#ff6e7e' : '#36e0c8';
-  ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
-  ctx.fillStyle='#04201a'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.55,0,7); ctx.fill();
-  // gun direction
-  ctx.strokeStyle='#eaf0ff'; ctx.lineWidth=4;
-  ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+Math.cos(p.dir)*p.r*1.5,p.y+Math.sin(p.dir)*p.r*1.5); ctx.stroke();
+  const hurt = p.hitFlash>0 && Math.floor(p.hitFlash*18)%2===0;
+  drawPerson(p.x, p.y, p.walkT||0, { skin:'#f3c79c', cloth: hurt?'#ff8a9a':'#2fd6bf', outline:'#06342b', s:1.15, arms:'down' });
+  // aiming gun on top, rotated toward facing
+  ctx.save(); ctx.translate(p.x, p.y-4); ctx.rotate(p.dir);
+  ctx.fillStyle='#2a2a2a'; ctx.fillRect(4,-2.2,18,4.4);
+  ctx.fillStyle='#444';    ctx.fillRect(0,-3.4,9,6.8);
+  // muzzle flash right after firing
+  if(Game.time - (p.lastFire||-9) < 0.05){ ctx.fillStyle='rgba(255,220,120,.95)'; ctx.beginPath(); ctx.arc(24,0,5,0,7); ctx.fill(); }
   ctx.restore();
 }
 
@@ -859,7 +1238,7 @@ function loop(ts){
   let dt=(ts-Game.last)/1000; Game.last=ts;
   if(dt>0.05) dt=0.05; // clamp
   if(Game.state==='playing') update(dt);
-  if(['playing','paused','levelup','build','gameover','ad'].includes(Game.state)) render();
+  if(['playing','paused','levelup','build','gameover','ad','trader'].includes(Game.state)) render();
 }
 
 /* ---------------------------------------------------------------------------
@@ -867,7 +1246,7 @@ function loop(ts){
 --------------------------------------------------------------------------- */
 const $ = id=>document.getElementById(id);
 const UI = {
-  screens:['loading','menu','howto','meta','hud','build-menu','levelup','pause','gameover'],
+  screens:['loading','menu','howto','meta','hud','build-menu','levelup','pause','gameover','trader'],
   show(id){ $(id).classList.remove('hidden'); },
   hide(id){ $(id).classList.add('hidden'); },
   hideAll(){ this.screens.forEach(s=>$(s).classList.add('hidden')); },
@@ -886,6 +1265,13 @@ const UI = {
     $('time-text').textContent = fmtTime(Game.time);
     $('xp-fill').style.width = (Game.xp/Game.xpNext*100)+'%';
     $('lvl-text').textContent = 'Lv '+Game.level;
+    // fame
+    const idx=fameTierIndex(), tDef=FAME_TIERS[idx], next=FAME_TIERS[idx+1];
+    const ft=$('fame-tier');
+    if(ft){ ft.textContent = tDef.ico+' '+tDef.name; ft.style.color=tDef.color; }
+    let pct=100; if(next){ pct=((Game.fame-tDef.min)/(next.min-tDef.min))*100; }
+    if($('fame-fill')){ $('fame-fill').style.width=clamp(pct,0,100)+'%'; $('fame-fill').style.background=tDef.color; }
+    if($('surv-text')) $('surv-text').textContent=Game.allies.length;
     $('btn-boost').disabled = Game.boostTimer>0;
     $('btn-boost').textContent = Game.boostTimer>0 ? ('x2 INGRESOS '+Math.ceil(Game.boostTimer)+'s') : '🎬 x2 INGRESOS 60s';
   },
@@ -943,7 +1329,7 @@ function storeCost(def, plot){
   if(plot.store){ // upgrade
     return Math.round(def.cost * Math.pow(1.6, plot.lvl) * cheaper);
   }
-  return Math.round(def.cost * cheaper);
+  return Math.round(def.cost * cheaper * (1 - (Game.buildDiscount||0)));
 }
 
 function openBuild(plot){
@@ -966,7 +1352,7 @@ function openBuild(plot){
       const cost=storeCost(def,plot);
       const afford=Game.cash>=cost;
       const row=storeRow(def, '$'+fmt(cost), afford, def.desc+' · +$'+def.income+'/s');
-      row.onclick=()=>{ if(Game.cash>=cost){ Game.cash-=cost; plot.store=def.id; plot.lvl=1; afterBuild(def,plot); } };
+      row.onclick=()=>{ if(Game.cash>=cost){ Game.cash-=cost; plot.store=def.id; plot.lvl=1; Game.buildDiscount=0; afterBuild(def,plot); } };
       list.appendChild(row);
     });
   }
@@ -986,12 +1372,33 @@ function afterBuild(def, plot){
   for(let i=0;i<14;i++) spawnParticle(plot.x,plot.y,'#36e0c8');
   // pharmacy heal burst
   if(def.id==='pharma'){ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+8*plot.lvl); }
+  // building/expanding the refuge raises its fame
+  addFame(def.cost*0.1);
+  if(!Game.tut.fame){ Game.tut.fame=1; toast('⭐ Tu FAMA sube al crecer. Más fama = más aliados y recursos… pero también más zombis y peligros.','#ffcf3f'); }
   recompute();
   // refresh menu (stay open for chained upgrades)
   openBuild(plot);
 }
 
 function closeBuild(){ UI.hide('build-menu'); if(Game.state==='build') Game.state='playing'; }
+
+/* trader menu (opened by tapping the trader stall) */
+function openTrader(){
+  if(!Game.trader) return;
+  Game.state='trader';
+  const list=$('trader-list'); list.innerHTML='';
+  Game.trader.deals.forEach(d=>{
+    const afford = Game.cash>=d.cost && !d.sold;
+    const row=document.createElement('div'); row.className='store-row'+(afford?'':' locked');
+    row.innerHTML=`<div class="s-ico">${d.ico}</div>
+      <div class="s-main"><div class="s-name">${d.name}</div><div class="s-desc">${d.desc}</div></div>
+      <div class="s-cost ${afford?'':'cant'}">${d.sold?'VENDIDO':'$'+fmt(d.cost)}</div>`;
+    if(afford) row.onclick=()=>{ if(Game.cash>=d.cost && !d.sold){ Game.cash-=d.cost; d.sold=true; d.apply(); Audio2.coin(); openTrader(); } };
+    list.appendChild(row);
+  });
+  UI.show('trader');
+}
+function closeTrader(){ UI.hide('trader'); if(Game.state==='trader') Game.state='playing'; }
 
 /* ---------------------------------------------------------------------------
    17. LEVEL UP CARDS
@@ -1049,6 +1456,7 @@ function bindUI(){
   $('btn-pause-mute').onclick=()=>{ const m=Audio2.toggleMute(); $('btn-pause-mute').textContent=m?'🔇 Sonido':'🔊 Sonido'; };
 
   $('btn-build-close').onclick=closeBuild;
+  $('btn-trader-close').onclick=closeTrader;
   $('btn-pause').onclick=pauseGame;
   $('btn-resume').onclick=resumeGame;
   $('btn-quit').onclick=()=>{ UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens(); CG.gameplayStop(); };

@@ -406,5 +406,145 @@ animated/juicy (screenshake on boss, coin bursts, floating combat text), readabl
 
 ---
 
-*This GDD is implemented (MVP scope) by the accompanying playable build: `index.html`,
-`game.js`, `style.css`.*
+## 16. ⭐ REFUGE FAME SYSTEM (signature core mechanic — IMPLEMENTED)
+
+> **One sentence:** Your mall becomes a *famous refuge*; fame is a visible meter that you
+> push up with everything you do, and the famous-er you get, the more **survivors, traders
+> and supplies** arrive — but also the more **hordes, saboteurs, infiltrated infected and
+> bosses** come for you. Every run is a tug-of-war between **Growth and Risk**.
+
+This is what turns the game from "another survivor-like" into a *zombie mall manager*: in
+Vampire Survivors difficulty is a fixed clock you cannot influence. Here **the player sets
+the pace of danger** by how aggressively they grow the refuge. Fame is the dial.
+
+### 16.1 Why it satisfies every requirement
+1. **Visible resource** — a permanent Fame bar + tier name in the HUD.
+2. **Rises through actions** — building/upgrading, recruiting, kills, surviving, bosses.
+3. **Positive *and* negative consequences** — same meter feeds both reward and threat tables.
+4. **Emergent stories** — see §16.10 (the infiltrator you trusted; the trader who saved the run).
+5. **Retention/replayability** — different fame curves = different runs; meta unlocks lean on it.
+6. **Essential, not optional** — fame *is* the difficulty director; you can't ignore it.
+7. **Understood in <2 min** — first store triggers a one-line tip; first survivor/saboteur/trader
+   each self-explain via a toast the first time they happen.
+8. **CrazyGames-friendly** — readable, juicy, one-tap decisions, natural rewarded-ad fit.
+
+### 16.2 Fame formula (as implemented)
+```
+fame += dt × (0.35 + 0.05 × storesBuilt + 0.04 × survivors)   // passive notoriety
+on store build/upgrade : fame += baseCost × 0.10
+on survivor joins      : fame += 15
+on zombie kill         : fame += 0.12 + 0.01 × wave
+on boss kill           : fame += 120
+quarantine infected    : fame += 10        | quarantine healthy ally : fame −8
+bandit raid event      : fame −10          | survivor devoured        : fame −5
+```
+Two derived "heat" values scale the danger so growth literally raises the stakes:
+```
+threat()  = 1 + fame / 650     → divides spawn interval (more zombies, faster)
+fameMul() = 1 + fame / 2600    → multiplies enemy HP and damage
+```
+
+### 16.3 Fame tiers (progression)
+| Tier | Fame | Name | What unlocks |
+|---:|---:|---|---|
+| 0 | 0 | 🕯️ Escondite | Quiet. Basic zombies only. |
+| 1 | 120 | 🏠 Casa segura | First **survivors** & **traders** start arriving. |
+| 2 | 350 | 📻 Refugio conocido | **Saboteurs** begin; bigger random events. |
+| 3 | 800 | ⭐ Refugio famoso | **Infiltrated infected** more likely; **refuge-assault bosses**; 4-deal traders. |
+| 4 | 1700 | 🏰 Bastión legendario | Frequent mega-hordes & multi-boss pressure; top-tier trades. |
+| 5 | 3400 | 🔥 Faro de esperanza | Endgame escalation; everything at maximum frequency. |
+Each tier-up fires a banner + toast ("more allies… and more danger") so the trade-off is explicit.
+
+### 16.4 Positive events (reward table)
+- **Survivor arrival** — a survivor walks in from the edge; protect them to the mall → free ally turret.
+- **Trader caravan** — time-limited stall at the mall with 3–4 deals (heal, +projectile, mercenary,
+  +max HP, –50% next store, +15% damage). Tap the stall to shop. Better/more deals at higher fame.
+- **Supply convoy** — instant cash injection.
+- **Volunteer medics** — +50% HP heal.
+- **High morale** — temporary ×2 income for 30s.
+
+### 16.5 Negative events (risk table) — weight grows with fame tier
+- **Mega-horde** ("attracted by your fame") — large telegraphed spawn burst.
+- **Saboteur** — see §16.7.
+- **Bandit raid** — steals 15% of your cash.
+- **Refuge-assault boss** — extra boss beyond the fixed every-5-waves one (tier ≥ 3).
+
+### 16.6 Survivor arrival system
+- Director spawns arrivals on a timer that **shortens as fame rises** (`max(6, 22 − tier×3)s`).
+- Arrivals path to the mall at 74 px/s and can be **devoured en route** if a zombie touches them
+  → creates a real defensive objective (escort/clear a lane).
+- On reaching the mall they **join as an auto-firing ally turret** (+15 fame).
+- Cap of ~14 concurrent allies+arrivals to bound performance and power.
+
+### 16.7 Saboteur system
+- A distinct pink zombie marked 🔧 that **ignores the player** and sprints to a random **built store**.
+- If it reaches the store, the store is **disabled for 12s** (no income, no buff, red ⚠ overlay,
+  screenshake) — then the saboteur turns and hunts the player.
+- Killing it pays a **cash bonus + fame**. Forces the player to peel off and intercept → real decisions.
+- Frequency scales with fame (tier ≥ 2): `max(14, 40 − tier×4)s`.
+
+### 16.8 Hidden infected survivor system (the paranoia hook)
+- Each arrival has a fame-scaled chance of being **secretly infected** (`min(45%, 4% + tier×7%)`).
+- Infected and healthy survivors **show the same join message** — you are never told.
+- The only **tell** is a *subtle, occasional sickly-green flicker* on the sprite (easy to miss).
+- After 14–30s an infected ally **turns into a strong "Turncoat" zombie INSIDE the refuge** —
+  a surprise attack past your perimeter.
+- **Counter-play:** tap any ally to **Quarantine** it. If it was infected → praise + **+10 fame**.
+  If it was healthy → you wasted a real defender → **−8 fame**. Trust the tell or play it safe.
+
+### 16.9 Boss attack system
+- Fixed cadence boss every 5 waves (The Mall Cop) **plus** fame-driven **Refuge Assault** bosses at
+  tier ≥ 3 on a timer that tightens with fame (`max(45, 95 − tier×9)s`). Bosses scale with `fameMul()`.
+
+### 16.10 UI & visual feedback (implemented)
+- **Fame bar** (3rd HUD row) with tier icon+name, colored fill toward next tier, and a 🙋 survivor count.
+- **Tier-up banner** + colored toast.
+- **Event toasts** (top-center, stacked, auto-expiring) narrate every arrival/trade/saboteur/horde.
+- **In-world cues:** arriving survivors bob a green "!"; trader stall pulses "COMERCIAR · Ns";
+  saboteurs wear 🔧; disabled stores flash a red ⚠; infected allies flicker green.
+
+### 16.11 Tutorial integration
+First-time toasts (one line each, non-blocking): on first build → "Fame rises as you grow — more
+allies & resources, but more zombies & danger"; first arrival → escort + infiltrator warning; first
+saboteur → "intercept it!"; first mega-horde → "growing fast has a price." No modal walls.
+
+### 16.12 Balancing recommendations
+- Keep `threat` (fame/650) gentler than wave scaling early so the first 2 min stay welcoming.
+- Tune arrival cap (14) and ally DPS (0.45× player) so allies *help* but never trivialize aiming.
+- Infection chance ceiling 45% keeps quarantine a *gamble*, not a coin-flip tax.
+- Saboteur speed (118) > player base (185 only when moving) → catchable but demands attention.
+- Negative-event chance `min(70%, 20% + tier×10%)` — early game leans positive (hook), late leans risk.
+
+### 16.13 Endgame scaling
+- At tier 5 every director timer is at its floor → constant arrivals, near-permanent trader uptime,
+  frequent mega-hordes + stacked bosses. The mall becomes a roaring fortress vs. a sea of zombies —
+  the "15-minute fortress" power-fantasy, now *earned by the player's own fame choices*.
+- Natural feed into **Endless**: fame keeps climbing → leaderboard by peak fame / wave / time.
+
+### 16.14 Example player decisions
+- *"I'm at $300 — build the Armory now (spikes fame → harder) or bank it and stay quiet?"*
+- *"A saboteur is on my Supermarket but I'm kiting a boss — sacrifice the income or the position?"*
+- *"This new survivor flickered… maybe. Quarantine (lose a gun, −8 fame) or risk a turncoat?"*
+- *"Trader has a Mercenary for $400 but a mega-horde is 10s out — buy defense or save for stores?"*
+- *"Push to tier 5 for the trade deals, or cap fame by not upgrading to survive longer?"*
+
+### 16.15 Emergent gameplay situations
+- You escort a survivor through a gap in the horde, they join, you feel like a hero — 20s later they
+  turn into a Turncoat mid-boss and nearly wipe you. *You'll remember that survivor.*
+- A bandit raid empties your wallet right before a trader with the perfect deal arrives — agony.
+- You quarantine three "suspicious" survivors in a row; all were healthy; your defense collapses to a
+  horde you could've held. Paranoia has a cost.
+- Two saboteurs split toward opposite stores while a mega-horde funnels in — triage under pressure.
+
+### 16.16 How it transforms the game
+Vampire Survivors asks *"how long can you survive a fixed clock?"* Zombie Mall Tycoon Survivor asks
+*"how famous dare you make your refuge?"* Fame fuses the tycoon and survivor halves into one decision
+loop: every economic choice (build, upgrade, recruit, trade) is also a **threat choice**. Growth is no
+longer free — it's the source of both your power and your peril. That single dial creates ownership,
+tension, stories, and replay variety that a pure survivor-like cannot, while staying instantly legible
+to a CrazyGames audience.
+
+---
+
+*This GDD is implemented (MVP + Refuge Fame System) by the accompanying playable build:
+`index.html`, `game.js`, `style.css`.*

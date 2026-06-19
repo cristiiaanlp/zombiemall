@@ -12,7 +12,10 @@ function makeEl(id){
     classList:{ add(c){el._cls.add(c);}, remove(c){el._cls.delete(c);}, contains(c){return el._cls.has(c);} },
     set onclick(f){el._onclick=f;}, get onclick(){return el._onclick;},
     set onblur(f){el._blur=f;}, get onblur(){return el._blur;},
-    appendChild(c){children.push(c); return c;},
+    appendChild(c){children.push(c); c.parentNode=el; return c;},
+    removeChild(c){ const i=children.indexOf(c); if(i>=0) children.splice(i,1); return c; },
+    get firstChild(){ return children[0]; },
+    parentNode:null,
     querySelector(){ return makeEl('q'); },
     querySelectorAll(){ return []; },
     addEventListener(){}, removeEventListener(){},
@@ -62,7 +65,7 @@ sandbox.CrazyGames = undefined; // simulate no SDK -> graceful fallback
 
 let src = fs.readFileSync(__dirname+'/game.js','utf8');
 // expose internals after the IIFE
-src = '(function(){\n' + src + '\n;globalThis.__T={Game,startRun,update,render,recompute,eff,openBuild,closeBuild,drawCards,openLevelUp,nextWave,spawnZombie,killZombie,Save,UI,fireWeapon,hurtPlayer};\n})();';
+src = '(function(){\n' + src + '\n;globalThis.__T={Game,startRun,update,render,recompute,eff,openBuild,closeBuild,drawCards,openLevelUp,nextWave,spawnZombie,killZombie,Save,UI,fireWeapon,hurtPlayer,addFame,spawnArrival,spawnSaboteur,fireRandomEvent,megaHorde,spawnTrader,openTrader,closeTrader,quarantineAlly,fameTierIndex,toast};\n})();';
 
 const ctx = vm.createContext(sandbox);
 vm.runInContext(src, ctx, {filename:'game.js'});
@@ -125,6 +128,37 @@ function run(T){
 
     if(T.Game.state==='gameover'){ console.log('  (player died at tick '+i+', restarting)'); guard('restart',()=>T.startRun()); }
   }
+
+  // ---- exercise the Refuge Fame System explicitly ----
+  guard('addFame', ()=>T.addFame(2000));                 // push to a high tier
+  guard('tierIdx', ()=>{ if(typeof T.fameTierIndex()!=='number') throw new Error('tier NaN'); });
+  guard('spawnArrival', ()=>{ for(let k=0;k<6;k++) T.spawnArrival(); });
+  guard('spawnSaboteur', ()=>T.spawnSaboteur());
+  guard('megaHorde', ()=>T.megaHorde());
+  guard('spawnTrader', ()=>T.spawnTrader(3));
+  guard('openTrader', ()=>T.openTrader());
+  // buy every trader deal
+  guard('buyDeals', ()=>{ if(T.Game.trader){ T.Game.cash=1e7; T.Game.trader.deals.forEach(d=>{ if(!d.sold){ d.sold=true; d.apply(); } }); } });
+  guard('closeTrader', ()=>T.closeTrader());
+  // run long enough for arrivals to reach the mall and infected to turn (turncoats)
+  for(let i=0;i<2400;i++){ guard('fameUpdate#'+i, ()=>T.update(1/60)); guard('fameRender#'+i, ()=>T.render());
+    if(T.Game.state==='levelup'){ const c=getEl('card-row').children[0]; if(c&&c._onclick) c._onclick(); else T.Game.state='playing'; }
+    if(T.Game.state==='gameover'){ T.startRun(); T.addFame(2000); }
+  }
+  // inject allies (one infected with a short fuse) to force turncoat + quarantine paths
+  guard('injectAllies', ()=>{
+    T.Game.allies.push({x:640,y:300,cd:0,infected:true,turnTimer:0.5});   // will turn -> spawnTurncoat
+    T.Game.allies.push({x:660,y:300,cd:0,infected:true,turnTimer:99});    // quarantine: was infected
+    T.Game.allies.push({x:680,y:300,cd:0,infected:false,turnTimer:0});    // quarantine: healthy (penalty)
+  });
+  guard('letInfectedTurn', ()=>{ for(let i=0;i<60;i++) T.update(1/60); });  // ~1s -> turncoat spawns
+  // quarantine remaining allies (paranoia decision path: both infected & healthy)
+  guard('quarantine', ()=>{ T.Game.allies.slice().forEach(a=>T.quarantineAlly(a)); });
+  guard('fireEvents', ()=>{ for(let k=0;k<10;k++) T.fireRandomEvent(4); });
+  for(let i=0;i<600;i++){ guard('postEvt#'+i, ()=>T.update(1/60)); guard('postEvtR#'+i, ()=>T.render());
+    if(T.Game.state==='gameover'){ T.startRun(); }
+  }
+  console.log('Fame check -> fame:'+Math.round(T.Game.fame)+', tier:'+T.fameTierIndex()+', allies:'+T.Game.allies.length+', arrivals:'+T.Game.arrivals.length);
 
   // exercise boss wave + spitter/bloater by jumping waves
   guard('jumpWaves', ()=>{ for(let w=0;w<12;w++) T.nextWave(); });

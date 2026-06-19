@@ -41,6 +41,20 @@ Mata zombis → gana `$` y XP → construye/mejora tiendas (ingresos + buffs) �
 y elige cartas → recluta torretas (Seguridad) → sobrevive oleadas (jefe cada 5) →
 al morir ganas **Tokens** → gástalos en mejoras permanentes (menú Mejoras).
 
+## ⭐ Refuge Fame System (mecánica única — ver GDD §16)
+Tu mall se vuelve un **refugio famoso**. La **Fama** (barra visible en el HUD) sube con todo
+lo que haces y es el **director de dificultad**: cuanta más fama, más **supervivientes,
+comerciantes y suministros** llegan… pero también más **hordas, saboteadores, infiltrados
+infectados y jefes**. Crecimiento vs Riesgo en una sola palanca.
+- **Supervivientes** llegan andando al mall (protégelos) y se vuelven aliados con torreta.
+- **Comerciante**: puesto temporal en el mall — tócalo para comprar curas, mercenarios, mejoras.
+- **Saboteadores** 🔧 corren a inutilizar tus tiendas 12s — intercéptalos.
+- **Infiltrados infectados**: algunos supervivientes están infectados (pista sutil: parpadeo
+  verde). Si no los pones en **cuarentena** (toca al aliado), se convierten en zombi dentro
+  del refugio. Pero poner en cuarentena a uno sano cuesta fama → decisión tensa.
+- **Sprites** de personaje, zombis (por tipo), aliados, comerciante y jefe dibujados con
+  animación de caminar, no círculos.
+
 ## Test headless (desarrollo)
 ```bash
 node _smoketest.js
