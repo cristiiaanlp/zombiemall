@@ -77,6 +77,10 @@ const SYNERGIES = [
   { id:'demolition', ico:'rocket',name:{es:'Demolición',en:'Demolition'},          desc:{es:'Explosiones enormes',en:'Huge explosions'},                    need:s=>ownsCard(s,'rocket')&&ownsCard(s,'bigshot') },
   { id:'storm',      ico:'drone', name:{es:'Tormenta de drones',en:'Drone Storm'}, desc:{es:'Tus drones disparan balas que rebotan',en:'Your drones fire ricochet rounds'}, need:s=>ownsCard(s,'drone')&&ownsCard(s,'bounce') },
   { id:'assassin',   ico:'crit',  name:{es:'Asesino',en:'Assassin'},               desc:{es:'+15% prob. crítico',en:'+15% crit chance'},                    need:s=>ownsCard(s,'crit')&&ownsCard(s,'critdmg'), apply:s=>s.crit+=0.15 },
+  { id:'frostbite',  ico:'frost', name:{es:'Congelación',en:'Frostbite'},          desc:{es:'+35% daño a enemigos lentos',en:'+35% damage to slowed foes'}, need:s=>ownsCard(s,'cryo')&&ownsCard(s,'crit') },
+  { id:'juggernaut', ico:'armor', name:{es:'Juggernaut',en:'Juggernaut'},          desc:{es:'-15% daño recibido extra',en:'-15% extra damage taken'},        need:s=>ownsCard(s,'armor')&&ownsCard(s,'maxhp'), apply:s=>s.dr=Math.min(0.75,s.dr+0.15) },
+  { id:'executioner',ico:'crit',  name:{es:'Verdugo',en:'Executioner'},            desc:{es:'+100% daño crítico',en:'+100% crit damage'},                   need:s=>ownsCard(s,'critdmg')&&ownsCard(s,'glass'), apply:s=>s.critMul+=1 },
+  { id:'hoarder',    ico:'cash',  name:{es:'Acaparador',en:'Hoarder'},             desc:{es:'+imán y +30% dinero',en:'+magnet & +30% cash'},                need:s=>ownsCard(s,'greed')&&ownsCard(s,'magnet'), apply:s=>{s.magnet+=80;s.cashMult+=0.3;} },
 ];
 
 // Meta upgrades (persistent, bought with tokens). cost grows per level.
@@ -491,6 +495,7 @@ function startRun(){
   Game.arrivalTimer=7; Game.traderTimer=38; Game.eventTimer=26; Game.sabotageTimer=30; Game.fameBossTimer=30;
   Game.buildDiscount=0; Game.tut={};
   Game.refugeOn=false; Game.mallTier=0; Game.syn={};
+  { const sb=$('syn-bar'); if(sb) sb.innerHTML=''; }
   // start simple: hide the refuge HUD until the systems unlock
   const fameRow=$('hud-fame'); if(fameRow) fameRow.classList.add('hidden');
   // meta: start with pharmacy
@@ -880,6 +885,7 @@ function update(dt){
           let dmg=b.dmg;
           const isCrit = Math.random()<e.crit;
           if(isCrit) dmg*=e.critMul;
+          if(Game.syn.frostbite && z.slowT>0) dmg*=1.35;
           // on-hit status effects
           if(b.kb){ const m=Math.hypot(b.vx,b.vy)||1; z.x+=(b.vx/m)*b.kb; z.y+=(b.vy/m)*b.kb; }
           if(b.slow){ z.slowT=Math.max(z.slowT||0, 0.8+b.slow*0.5); z.slowF=Math.max(0.35, 0.7-b.slow*0.12); }
@@ -2012,6 +2018,13 @@ function checkSynergies(){
       Audio2.levelup(); CG.happytime();
     }
   }
+  updateSynBar();
+}
+function updateSynBar(){
+  const bar=$('syn-bar'); if(!bar) return;
+  let html='';
+  for(const sy of SYNERGIES){ if(Game.syn[sy.id]) html+='<span class="syn-chip">'+iconImg(sy.ico,16)+tx(sy.name)+'</span>'; }
+  bar.innerHTML=html;
 }
 
 /* ---------------------------------------------------------------------------
@@ -2123,6 +2136,7 @@ async function boot(){
         ['cafe','gun','market'].forEach((id,i)=>{ Game.plots[i].store=id; Game.plots[i].lvl=2; });
         Game.stats.projAdd=2; Game.cash=3000; Game.mallTier=2; Game.wave=8; recompute();
         ['shambler','runner','brute','spitter','bloater'].forEach((tp,i)=>{ spawnZombie(tp,false); const z=Game.zombies[Game.zombies.length-1]; z.x=CX-170+i*78; z.y=CY+150; z.hp=z.maxHp*0.7; });
+        Object.assign(Game.stats.cardCounts,{cryo:1,fire:1,crit:1,critdmg:1}); Game.refugeOn=true; checkSynergies();
       }
       if(location.hash.indexOf('cards')>=0) openLevelUp();
       if(location.hash.indexOf('syn')>=0){ Game.stats.cardCounts.cryo=1; Game.stats.cardCounts.fire=1; Game.stats.slow=1; Game.stats.burn=1; checkSynergies(); openLevelUp(); }
