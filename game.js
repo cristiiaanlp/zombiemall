@@ -1346,12 +1346,15 @@ function render(){
   drawPlayer();
 
   // particles
-  for(const pa of Game.particles){ ctx.globalAlpha=Math.max(0,pa.life*2); ctx.fillStyle=pa.color; ctx.beginPath(); ctx.arc(pa.x,pa.y,pa.r,0,7); ctx.fill(); }
-  ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='lighter';
+  for(const pa of Game.particles){ ctx.globalAlpha=Math.max(0,pa.life*2); ctx.fillStyle=pa.color; ctx.beginPath(); ctx.arc(pa.x,pa.y,pa.r*1.6,0,7); ctx.fill(); }
+  ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
 
-  // floating texts
-  ctx.textAlign='center'; ctx.font='bold 12px Rajdhani';
-  for(const t of Game.texts){ ctx.globalAlpha=Math.max(0,t.life*1.4); ctx.fillStyle=t.color; ctx.font='bold '+t.size+'px Rajdhani'; ctx.fillText(t.txt,t.x,t.y); }
+  // floating texts (with outline for readability)
+  ctx.textAlign='center'; ctx.lineJoin='round';
+  for(const ft of Game.texts){ ctx.globalAlpha=Math.max(0,ft.life*1.4); ctx.font='bold '+ft.size+'px Rajdhani';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.strokeText(ft.txt,ft.x,ft.y);
+    ctx.fillStyle=ft.color; ctx.fillText(ft.txt,ft.x,ft.y); }
   ctx.globalAlpha=1;
 
   ctx.restore();
@@ -1360,72 +1363,106 @@ function render(){
 function drawBackground(){
   // deep purple gradient base
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#1d0c30'); g.addColorStop(1,'#0d0617');
+  g.addColorStop(0,'#221036'); g.addColorStop(0.6,'#160b25'); g.addColorStop(1,'#0c0615');
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-  // neon tile grid (magenta + cyan offset for depth)
+  // polished mall floor: big tiles + subtle checker
+  const T=96;
+  for(let gy=0;gy*T<H;gy++) for(let gx=0;gx*T<W;gx++){
+    if((gx+gy)&1){ ctx.fillStyle='rgba(255,255,255,.013)'; ctx.fillRect(gx*T,gy*T,T,T); }
+  }
   ctx.lineWidth=1;
-  ctx.strokeStyle='rgba(255,46,136,.055)';
-  for(let x=0;x<=W;x+=64){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for(let y=0;y<=H;y+=64){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-  ctx.strokeStyle='rgba(34,224,255,.04)';
-  for(let x=32;x<=W;x+=64){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  // warm glow under the mall atrium
-  const rg=ctx.createRadialGradient(CX,CY,40,CX,CY,460);
-  rg.addColorStop(0,'rgba(255,46,136,.12)'); rg.addColorStop(0.5,'rgba(124,40,160,.06)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.strokeStyle='rgba(255,46,136,.05)';
+  for(let x=0;x<=W;x+=T){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for(let y=0;y<=H;y+=T){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.strokeStyle='rgba(34,224,255,.035)';
+  for(let x=T/2;x<=W;x+=T){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  // soft light pooling under the mall atrium
+  const rg=ctx.createRadialGradient(CX,CY,40,CX,CY,500);
+  rg.addColorStop(0,'rgba(255,90,170,.14)'); rg.addColorStop(0.5,'rgba(124,40,160,.06)'); rg.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
 }
 
 function drawMall(){
   const built = Game.plots.filter(p=>p.store).length;
   const tier = mallTierOf(built);
-  const colors=['#2a1838','#3a1d52','#2d2a5e','#4a2a52'];
-  const glow=['#3a2150','#a24adf','#22e0ff','#ffc23c'];
-  const signCol=['#7a6699','#c98aff','#22e0ff','#ffc23c'][tier];
+  const glow=['#5a3a7a','#a24adf','#22e0ff','#ffc23c'][tier];
+  const sign=['#9a86b9','#c98aff','#22e0ff','#ffc23c'][tier];
+  const x=CX-120, y=CY-82, w=240, h=164;
   ctx.save();
-  ctx.shadowColor=glow[tier]; ctx.shadowBlur=10+tier*10;
-  ctx.fillStyle=colors[tier];
-  roundRect(CX-110,CY-78,220,156,16); ctx.fill();
-  // neon edge
-  ctx.shadowBlur=tier*6; ctx.strokeStyle=glow[tier]; ctx.lineWidth=2;
-  roundRect(CX-110,CY-78,220,156,16); ctx.stroke();
+  ctx.textAlign='center';
+  // ground shadow
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(CX,y+h+4,128,18,0,0,7); ctx.fill();
+  // building body (gradient)
+  const bg=ctx.createLinearGradient(0,y+16,0,y+h);
+  bg.addColorStop(0,'#3a2550'); bg.addColorStop(1,'#221338');
+  ctx.shadowColor=glow; ctx.shadowBlur=18+tier*6;
+  ctx.fillStyle=bg; roundRect(x,y+16,w,h-16,14); ctx.fill();
   ctx.shadowBlur=0;
-  // roof sign
-  drawIcon(ctx, 'mall', CX, CY-26, 30);
-  ctx.fillStyle='#fff'; ctx.font='16px Bungee'; ctx.textAlign='center';
-  ctx.shadowColor=signCol; ctx.shadowBlur=tier>=1?12:0;
-  ctx.fillText('MALL',CX,CY+6);
-  ctx.shadowBlur=0;
-  ctx.fillStyle=signCol; ctx.font='600 11px Rajdhani';
-  ctx.fillText([t('tierAbandoned'),t('tierOperational'),t('tierFortified'),t('tierMega')][tier],CX,CY+24);
+  ctx.strokeStyle=glow; ctx.lineWidth=2; roundRect(x,y+16,w,h-16,14); ctx.stroke();
+  // lit storefront windows (more lights = higher tier)
+  const cols=6, cw=(w-36)/cols;
+  for(let r=0;r<2;r++) for(let c=0;c<cols;c++){
+    const wx=x+18+c*cw, wy=y+30+r*26;
+    const lit=(tier>0)&&((c+r)%(tier>=2?1:2)===0);
+    ctx.fillStyle= lit ? (tier>=3?'rgba(255,194,60,.9)':'rgba(34,224,255,.8)') : 'rgba(120,140,200,.16)';
+    roundRect(wx,wy,cw-8,15,3); ctx.fill();
+  }
+  // entrance + awning
+  ctx.fillStyle=glow; ctx.globalAlpha=.45; roundRect(x+6,y+h-42,w-12,7,3); ctx.fill(); ctx.globalAlpha=1;
+  ctx.fillStyle='#120a1e'; roundRect(CX-26,y+h-32,52,32,4); ctx.fill();
+  ctx.strokeStyle=sign; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(CX,y+h-32); ctx.lineTo(CX,y+h); ctx.stroke();
+  // rooftop neon sign board
+  ctx.fillStyle='#160a24'; roundRect(CX-72,y-8,144,32,7); ctx.fill();
+  ctx.strokeStyle=sign; ctx.lineWidth=2; ctx.shadowColor=sign; ctx.shadowBlur=tier>=1?16:5;
+  roundRect(CX-72,y-8,144,32,7); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='20px Bungee'; ctx.textBaseline='middle';
+  ctx.fillText('MALL',CX,y+9); ctx.shadowBlur=0; ctx.textBaseline='alphabetic';
+  // tier label
+  ctx.fillStyle=sign; ctx.font='600 11px Rajdhani';
+  ctx.fillText([t('tierAbandoned'),t('tierOperational'),t('tierFortified'),t('tierMega')][tier],CX,y+h-7);
   ctx.restore();
 }
+
+const STORE_HUE={ cafe:'#c98a5a', gun:'#cdd6e6', pharma:'#ff5e7a', rest:'#ffce5a', gym:'#9fb0d6', market:'#5dd6ff', security:'#7c9cff', elec:'#ffd23f', sports:'#ff7aa0', armor:'#b6ff3b', jewel:'#5dffe0', heli:'#bcd0e6' };
 
 function drawPlot(p){
   if(p.store){
     const def=STORES.find(s=>s.id===p.store);
-    const tierGlow = p.lvl>=4?'#ffc23c':p.lvl>=2?'#22e0ff':'#a24adf';
-    ctx.save();
-    ctx.shadowColor=tierGlow; ctx.shadowBlur=10;
-    ctx.fillStyle='#2a1840'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
-    ctx.shadowBlur=0; ctx.strokeStyle=tierGlow; ctx.lineWidth=1.5; roundRect(p.x-30,p.y-30,60,60,10); ctx.stroke();
-    ctx.shadowBlur=0;
-    drawIcon(ctx, def.ico, p.x, p.y-3, 32);
+    const acc=STORE_HUE[def.id]||'#a24adf';
+    const tg = p.lvl>=4?'#ffc23c' : p.lvl>=2?'#22e0ff' : acc;
+    const x=p.x-32, y=p.y-30, w=64, h=64;
+    ctx.save(); ctx.textAlign='center';
+    // ground shadow
+    ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(p.x,p.y+30,29,6,0,0,7); ctx.fill();
+    // shop body
+    const bg=ctx.createLinearGradient(0,y,0,y+h); bg.addColorStop(0,'#33204d'); bg.addColorStop(1,'#211438');
+    ctx.shadowColor=tg; ctx.shadowBlur=9; ctx.fillStyle=bg; roundRect(x,y+8,w,h-8,9); ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle=tg; ctx.lineWidth=1.5; roundRect(x,y+8,w,h-8,9); ctx.stroke();
+    // glass front
+    ctx.fillStyle='rgba(130,170,230,.10)'; roundRect(x+6,y+24,w-12,h-34,5); ctx.fill();
+    // sign board + striped awning
+    ctx.fillStyle=acc; roundRect(x+3,y-2,w-6,13,4); ctx.fill();
+    for(let i=0;i<6;i++){ ctx.fillStyle=i%2?'#ffffff':acc; ctx.globalAlpha=.9; roundRect(x+4+i*((w-8)/6),y+11,(w-8)/6,5,1); ctx.fill(); }
+    ctx.globalAlpha=1;
+    // store icon
+    drawIcon(ctx, def.ico, p.x, p.y, 30);
     // level pips
-    for(let i=0;i<5;i++){ ctx.fillStyle=i<p.lvl?tierGlow:'#39435f'; ctx.fillRect(p.x-22+i*9,p.y+18,7,4); }
-    // saboteur disabled overlay
+    for(let i=0;i<5;i++){ ctx.fillStyle=i<p.lvl?tg:'#3a2a52'; ctx.beginPath(); ctx.arc(p.x-18+i*9,p.y+24,2.4,0,7); ctx.fill(); }
     if(p.disabledT>0){
-      ctx.fillStyle='rgba(255,40,60,'+(0.25+0.15*Math.sin(Game.time*10))+')'; roundRect(p.x-30,p.y-30,60,60,10); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='16px Rajdhani'; ctx.fillText('⚠',p.x,p.y-22);
+      ctx.fillStyle='rgba(255,40,60,'+(0.25+0.15*Math.sin(Game.time*10))+')'; roundRect(x,y+8,w,h-8,9); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='bold 18px Rajdhani'; ctx.textBaseline='middle'; ctx.fillText('!',p.x,p.y-16); ctx.textBaseline='alphabetic';
     }
-    ctx.textBaseline='alphabetic';
     ctx.restore();
   } else {
-    // empty plot — pulsing neon "build here" marker
-    const pulse=0.45+0.35*Math.sin(Game.time*4);
-    ctx.strokeStyle=`rgba(255,46,136,${pulse})`; ctx.lineWidth=2.5; ctx.setLineDash([6,6]);
-    roundRect(p.x-28,p.y-28,56,56,10); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle=`rgba(34,224,255,${pulse})`; ctx.font='bold 22px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    // empty plot — construction site marker
+    const pulse=0.4+0.35*Math.sin(Game.time*4);
+    ctx.save();
+    ctx.fillStyle='rgba(34,224,255,.05)'; roundRect(p.x-28,p.y-28,56,56,9); ctx.fill();
+    ctx.strokeStyle='rgba(255,194,60,'+pulse+')'; ctx.lineWidth=2.5; ctx.setLineDash([7,6]);
+    roundRect(p.x-28,p.y-28,56,56,9); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(34,224,255,'+(0.55+pulse*0.45)+')'; ctx.font='bold 24px Rajdhani'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('+',p.x,p.y); ctx.textBaseline='alphabetic';
+    ctx.restore();
   }
 }
 
@@ -1435,35 +1472,37 @@ function drawPerson(x, y, phase, opt){
   const s = opt.s||1;
   const bob = Math.sin(phase)*1.6*s;
   const legSwing = Math.sin(phase)*3.2*s;
+  const hunch = opt.hunch||0;
   ctx.save();
   ctx.translate(x, y+bob);
+  ctx.lineCap='round'; ctx.lineJoin='round';
   // ground shadow
-  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0,13*s,9*s,3.4*s,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0,13*s,9*s,3.4*s,0,0,7); ctx.fill();
   // legs
-  ctx.strokeStyle=opt.outline; ctx.lineWidth=3.2*s; ctx.lineCap='round';
+  ctx.strokeStyle=opt.outline; ctx.lineWidth=3.4*s;
   ctx.beginPath(); ctx.moveTo(-3*s,5*s); ctx.lineTo(-3*s+legSwing,13*s); ctx.moveTo(3*s,5*s); ctx.lineTo(3*s-legSwing,13*s); ctx.stroke();
-  const hunch = opt.hunch||0;
-  // body
-  ctx.fillStyle=opt.cloth; ctx.strokeStyle=opt.outline; ctx.lineWidth=2*s;
-  roundRect(-7*s,(-6+hunch)*s,14*s,(12)*s,4*s); ctx.fill(); ctx.stroke();
-  // arms
-  ctx.strokeStyle=opt.cloth; ctx.lineWidth=3.4*s;
+  // back arms (darker)
+  ctx.strokeStyle=shade(opt.cloth,-28); ctx.lineWidth=3.6*s;
+  const aw=Math.cos(phase)*2.2*s;
   if(opt.arms==='fwd'){
-    const aw=Math.cos(phase)*2*s;
-    ctx.beginPath();
-    ctx.moveTo(-6*s,(-2+hunch)*s); ctx.lineTo(-10*s,(5+hunch)*s+aw);
-    ctx.moveTo(6*s,(-2+hunch)*s);  ctx.lineTo(10*s,(5+hunch)*s-aw);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6*s,(-2+hunch)*s); ctx.lineTo(-10*s,(5+hunch)*s+aw); ctx.moveTo(6*s,(-2+hunch)*s); ctx.lineTo(10*s,(5+hunch)*s-aw); ctx.stroke();
   } else {
-    const aw=Math.cos(phase)*2.2*s;
-    ctx.beginPath();
-    ctx.moveTo(-6*s,-2*s); ctx.lineTo(-8*s,5*s+aw);
-    ctx.moveTo(6*s,-2*s);  ctx.lineTo(8*s,5*s-aw);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-6*s,-2*s); ctx.lineTo(-8.5*s,5*s+aw); ctx.moveTo(6*s,-2*s); ctx.lineTo(8.5*s,5*s-aw); ctx.stroke();
   }
+  // body with vertical gradient
+  const bgd=ctx.createLinearGradient(0,(-6+hunch)*s,0,6*s);
+  bgd.addColorStop(0,shade(opt.cloth,28)); bgd.addColorStop(1,opt.cloth);
+  ctx.fillStyle=bgd; ctx.strokeStyle=opt.outline; ctx.lineWidth=2*s;
+  roundRect(-7*s,(-6+hunch)*s,14*s,12*s,4*s); ctx.fill(); ctx.stroke();
+  // chest rim light
+  ctx.fillStyle='rgba(255,255,255,.16)'; roundRect(-5*s,(-5+hunch)*s,3.5*s,9*s,1.6*s); ctx.fill();
   // head
   ctx.fillStyle=opt.skin; ctx.strokeStyle=opt.outline; ctx.lineWidth=2*s;
   ctx.beginPath(); ctx.arc(0,(-12+hunch)*s,6*s,0,7); ctx.fill(); ctx.stroke();
+  // hair cap
+  ctx.fillStyle=opt.hair||'#33240f'; ctx.beginPath(); ctx.arc(0,(-13+hunch)*s,6*s,Math.PI*1.04,Math.PI*1.96); ctx.fill();
+  // head highlight
+  ctx.fillStyle='rgba(255,255,255,.28)'; ctx.beginPath(); ctx.arc(-2.2*s,(-12.5+hunch)*s,1.5*s,0,7); ctx.fill();
   ctx.restore();
 }
 
@@ -1502,22 +1541,30 @@ function drawZombie(z){
   const legSwing=Math.sin(phase)*3*s;
   ctx.strokeStyle=outline; ctx.lineWidth=3.2*s; ctx.lineCap='round';
   ctx.beginPath(); ctx.moveTo(-3*s,z.r*0.35); ctx.lineTo(-3*s+legSwing,z.r*0.95); ctx.moveTo(3*s,z.r*0.35); ctx.lineTo(3*s-legSwing,z.r*0.95); ctx.stroke();
-  // body (slightly hunched)
-  ctx.fillStyle=body; ctx.strokeStyle=outline; ctx.lineWidth=2*s;
-  roundRect(-z.r*0.55, -z.r*0.35, z.r*1.1, z.r*0.85, 3*s); ctx.fill(); ctx.stroke();
-  // outstretched arms (reaching)
-  ctx.strokeStyle=body; ctx.lineWidth=3.4*s;
+  // reaching arms (behind body)
   const armSwing=Math.cos(phase)*2*s;
+  ctx.strokeStyle = flash ? '#fff' : shade(z.color,-14); ctx.lineWidth=3.4*s;
   ctx.beginPath();
   ctx.moveTo(-z.r*0.5,-z.r*0.1); ctx.lineTo(-z.r*0.95, z.r*0.25+armSwing);
   ctx.moveTo(z.r*0.5,-z.r*0.1);  ctx.lineTo(z.r*0.95, z.r*0.25-armSwing);
   ctx.stroke();
+  // body
+  ctx.fillStyle=body; ctx.strokeStyle=outline; ctx.lineWidth=2*s;
+  roundRect(-z.r*0.55, -z.r*0.35, z.r*1.1, z.r*0.85, 3*s); ctx.fill(); ctx.stroke();
+  // depth: darker lower torso + top highlight
+  if(!flash){ ctx.fillStyle=shade(z.color,-30); roundRect(-z.r*0.55, z.r*0.18, z.r*1.1, z.r*0.32, 3*s); ctx.fill(); }
+  ctx.fillStyle='rgba(255,255,255,.12)'; roundRect(-z.r*0.5,-z.r*0.3,z.r*1.0,z.r*0.16,2*s); ctx.fill();
   // head
   ctx.fillStyle=body; ctx.strokeStyle=outline; ctx.lineWidth=2*s;
   ctx.beginPath(); ctx.arc(0,-z.r*0.75, z.r*0.5,0,7); ctx.fill(); ctx.stroke();
-  // glowing eyes
+  ctx.fillStyle='rgba(255,255,255,.2)'; ctx.beginPath(); ctx.arc(-z.r*0.2,-z.r*0.88,z.r*0.12,0,7); ctx.fill();
+  // mouth
+  ctx.fillStyle='#350a10'; ctx.beginPath(); ctx.ellipse(0,-z.r*0.56,z.r*0.17,z.r*0.1,0,0,7); ctx.fill();
+  // glowing eyes + glints
   ctx.fillStyle = flash ? '#911' : '#ff3b3b';
-  ctx.beginPath(); ctx.arc(-z.r*0.18,-z.r*0.8,z.r*0.11,0,7); ctx.arc(z.r*0.18,-z.r*0.8,z.r*0.11,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(-z.r*0.18,-z.r*0.82,z.r*0.12,0,7); ctx.arc(z.r*0.18,-z.r*0.82,z.r*0.12,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,210,210,.9)';
+  ctx.beginPath(); ctx.arc(-z.r*0.21,-z.r*0.85,z.r*0.045,0,7); ctx.arc(z.r*0.15,-z.r*0.85,z.r*0.045,0,7); ctx.fill();
   // type accents
   if(z.type==='spitter'){ ctx.fillStyle='#5b2a8a'; ctx.beginPath(); ctx.arc(0,-z.r*0.45,z.r*0.2,0,7); ctx.fill(); }
   if(z.type==='bloater'){ ctx.fillStyle='rgba(180,230,120,.5)'; ctx.beginPath(); ctx.arc(0,z.r*0.05,z.r*0.7+Math.sin(Game.time*4)*1.5,0,7); ctx.fill(); }
