@@ -31,7 +31,7 @@ const STORES = [
 // Enemy archetypes (see GDD §8). Stats are multiplied by wave scaling at spawn.
 const ENEMIES = {
   shambler:{ name:'Shambler', r:13, hpMul:1.0, spd:38,  dmg:1.0, color:'#86d44a', bounty:1.0, fromWave:1 },
-  runner:  { name:'Runner',   r:11, hpMul:0.7, spd:95,  dmg:0.8, color:'#ffd23f', bounty:1.1, fromWave:3 },
+  runner:  { name:'Runner',   r:11, hpMul:0.7, spd:95,  dmg:0.8, color:'#ffd23f', bounty:1.1, fromWave:2 },
   brute:   { name:'Brute',    r:22, hpMul:3.4, spd:30,  dmg:1.8, color:'#3fae86', bounty:2.6, fromWave:5 },
   spitter: { name:'Spitter',  r:13, hpMul:1.0, spd:34,  dmg:1.0, color:'#cf7bff', bounty:1.5, fromWave:6, ranged:true },
   bloater: { name:'Bloater',  r:18, hpMul:2.0, spd:30,  dmg:1.4, color:'#b6ff3b', bounty:2.0, fromWave:8, explodes:true },
@@ -429,7 +429,7 @@ function freshStats(){
   return {
     hp:startHp, maxHp:startHp,
     dmg:10, dmgMult:1 + META[3].val(Save.metaLvl('damage')),
-    rate:2.2, rateMult:1,        // shots per second base
+    rate:2.4, rateMult:1,        // shots per second base
     projAdd:0 + (Save.metaLvl('damage')>=5?0:0),
     pierce:0, range:300,
     spd:185, spdMult:1,
@@ -446,7 +446,7 @@ function freshStats(){
 function startRun(){
   const s = freshStats();
   Game.stats = s;
-  Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0, walkT:0, lastFire:0 };
+  Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0, walkT:0, lastFire:0, invuln:0 };
   Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[];
   Game.plots = makePlots();
   Game.cash = 75 + META[1].val(Save.metaLvl('startCash'));
@@ -644,10 +644,12 @@ function plotAt(x,y){
 /* ---------------------------------------------------------------------------
    10. SPAWNING / WAVES
 --------------------------------------------------------------------------- */
-// Fame "heat": higher fame attracts more & tougher zombies (Growth vs Risk).
-function threat(){ return 1 + Game.fame/650; }
-function fameMul(){ return 1 + Game.fame/2600; }
-function spawnInterval(){ return Math.max(0.13, (1.0 - Game.wave*0.045)) / threat() * (Game.comebackTimer>0?1.6:1); }
+// Fame "heat": higher fame adds pressure but is decoupled enough that building
+// fast stays fun (it's a moderate risk dial, not a death sentence). Capped.
+function threat(){ return Math.min(2.2, 1 + Game.fame/1200); }
+function fameMul(){ return 1 + Game.fame/3000; }
+// Spawn cadence: gentle first waves, ramps from ~wave 8, floods late.
+function spawnInterval(){ return Math.max(0.12, (1.1 - Game.wave*0.04)) / threat() * (Game.comebackTimer>0?1.6:1); }
 
 function edgeSpawn(){
   const edge = Math.floor(Math.random()*4);
@@ -662,12 +664,13 @@ function spawnZombie(type, isBoss){
   const sp = edgeSpawn();
   const fm = fameMul();
   const waveHp = 10 * Math.pow(1.12, Game.wave) * fm;
+  const spdMul = Math.min(1.55, 1 + Game.wave*0.012);   // they close in faster late
   const z = {
     type, x:sp.x, y:sp.y, r:def.r, color:def.color, wob:Math.random()*7,
-    hp: waveHp*def.hpMul*(isBoss?40:1),
-    maxHp: waveHp*def.hpMul*(isBoss?40:1),
-    spd: def.spd*(isBoss?0.7:1),
-    dmg: (4+Game.wave*0.6)*def.dmg*fm*(isBoss?2.5:1),
+    hp: waveHp*def.hpMul*(isBoss?16:1),
+    maxHp: waveHp*def.hpMul*(isBoss?16:1),
+    spd: def.spd*spdMul*(isBoss?0.65:1),
+    dmg: (4+Game.wave*0.6)*def.dmg*fm*(isBoss?2.2:1),
     bounty: def.bounty*(isBoss?60:1)*(1+Game.wave*0.05),
     hitFlash:0, atkCd:0, ranged:def.ranged, explodes:def.explodes, boss:isBoss||false,
   };
@@ -735,7 +738,7 @@ function update(dt){
   const storesBuilt = Game.plots.filter(pl=>pl.store).length;
   if(!Game.refugeOn && Game.time>=30) activateRefuge();
   if(Game.refugeOn){
-    addFame(dt*(0.35 + 0.05*storesBuilt + 0.04*Game.allies.length));
+    addFame(dt*(0.25 + 0.04*storesBuilt + 0.03*Game.allies.length));
     if(Game.fameFlash>0) Game.fameFlash-=dt;
   }
 
@@ -761,6 +764,7 @@ function update(dt){
   p.x = clamp(p.x, 16, W-16); p.y = clamp(p.y, 16, H-16);
   if(mv.x||mv.y){ p.dir = Math.atan2(mv.y,mv.x); p.walkT += dt*12; }
   if(p.hitFlash>0) p.hitFlash-=dt;
+  if(p.invuln>0) p.invuln-=dt;
 
   // --- player auto fire ---
   p.fireCd -= dt;
@@ -809,7 +813,7 @@ function update(dt){
   const si=spawnInterval()*grace;
   while(Game.spawnTimer>=si && Game.zombies.length<graceCap){
     Game.spawnTimer-=si;
-    const burst = 1 + Math.floor(Game.wave/6);
+    const burst = 1 + Math.floor(Game.wave/5);   // hordes thicken steadily (bullet-heaven feel)
     for(let i=0;i<burst;i++) spawnZombie(pickEnemyType(),false);
   }
 
@@ -966,8 +970,8 @@ function explode(x,y,radius,dmg){
 
 function hurtPlayer(dmg){
   const p=Game.player, s=Game.stats;
-  if(p.hitFlash>0.4) return;
-  s.hp-=dmg; p.hitFlash=0.5; Game.shake=Math.min(10,Game.shake+4);
+  if(p.invuln>0) return;                 // i-frames: density can't instakill
+  s.hp-=dmg; p.hitFlash=0.5; p.invuln=0.55; Game.shake=Math.min(10,Game.shake+4);
   Audio2.hurt();
   addText(p.x,p.y-20,'-'+Math.round(dmg),'#ff4d5e',14);
 }
@@ -1732,7 +1736,7 @@ function afterBuild(def, plot){
   addText(plot.x, plot.y-22, '+$'+incNow+t('perSec'), '#b6ff3b', 16);
   // pharmacy heal burst
   if(def.id==='pharma'){ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+8*plot.lvl); }
-  if(Game.refugeOn) addFame(def.cost*0.1);
+  if(Game.refugeOn) addFame(def.cost*0.06);
   // MALL GROWTH celebration — the core "I'm rebuilding a mall" payoff
   const built=Game.plots.filter(p=>p.store).length;
   const nt=mallTierOf(built);
