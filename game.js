@@ -398,7 +398,7 @@ const Game = {
   state:'loading',   // loading|menu|playing|paused|levelup|build|gameover|ad
   last:0, acc:0,
   // run data
-  player:null, zombies:[], bullets:[], gems:[], coins:[], particles:[], texts:[], turrets:[], spits:[],
+  player:null, zombies:[], bullets:[], gems:[], coins:[], particles:[], texts:[], turrets:[], spits:[], deaths:[], decals:[],
   plots:[], stats:null,
   cash:0, time:0, wave:1, waveTimer:0, kills:0, bossesKilled:0,
   spawnTimer:0, incomeTimer:0, airstrikeTimer:0,
@@ -447,7 +447,7 @@ function startRun(){
   const s = freshStats();
   Game.stats = s;
   Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0, walkT:0, lastFire:0, invuln:0 };
-  Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[];
+  Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[]; Game.deaths=[]; Game.decals=[];
   Game.plots = makePlots();
   Game.cash = 75 + META[1].val(Save.metaLvl('startCash'));
   Game.time=0; Game.wave=1; Game.waveTimer=0; Game.kills=0; Game.bossesKilled=0;
@@ -898,6 +898,8 @@ function update(dt){
   // --- particles / texts ---
   for(let i=Game.particles.length-1;i>=0;i--){ const pa=Game.particles[i]; pa.x+=pa.vx*dt; pa.y+=pa.vy*dt; pa.vx*=0.92; pa.vy*=0.92; pa.life-=dt; if(pa.life<=0) Game.particles.splice(i,1); }
   for(let i=Game.texts.length-1;i>=0;i--){ const t=Game.texts[i]; t.y-=30*dt; t.life-=dt; if(t.life<=0) Game.texts.splice(i,1); }
+  for(let i=Game.deaths.length-1;i>=0;i--){ const dthc=Game.deaths[i]; dthc.t+=dt; if(dthc.t>=dthc.life) Game.deaths.splice(i,1); }
+  for(let i=Game.decals.length-1;i>=0;i--){ const dc=Game.decals[i]; dc.life-=dt; if(dc.life<=0) Game.decals.splice(i,1); }
 
   if(s.hp<=0) onPlayerDead();
 
@@ -950,8 +952,8 @@ function killZombie(z){
   if(z.saboteur || z.sabotaged){ Game.cash+=20+Game.wave*5; addText(z.x,z.y-22,t('saboteurKill'),'#ff5e9e',14); addFame(6); }
   // xp gem
   Game.gems.push({x:z.x,y:z.y,val: z.boss?40: (1+Math.floor(Game.wave*0.2)) });
-  // particles
-  for(let i=0;i<(z.boss?28:6);i++) spawnParticle(z.x,z.y,z.color);
+  // death animation (squash + blood + floor stain)
+  spawnDeath(z);
   // lifesteal
   if(Game.stats.lifesteal>0){ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+Game.stats.lifesteal); }
   if(z.explodes){ explode(z.x,z.y,60, 8+Game.wave); spawnZombie('shambler',false); spawnZombie('shambler',false); }
@@ -1015,6 +1017,15 @@ function spawnParticle(x,y,color){
   Game.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.4+Math.random()*0.3,color,r:2+Math.random()*2});
 }
 function addText(x,y,txt,color,size){ if(Game.texts.length>120) return; Game.texts.push({x,y,txt:String(txt),color,size:size||12,life:0.7}); }
+// gory death: squashing corpse anim + blood burst + a fading floor stain
+function spawnDeath(z){
+  Game.deaths.push({ x:z.x, y:z.y, r:z.r, color:z.color, t:0, life:z.boss?0.7:0.42, boss:!!z.boss });
+  if(Game.decals.length>44) Game.decals.shift();
+  Game.decals.push({ x:z.x, y:z.y+z.r*0.4, r:z.r*(z.boss?2.0:1.15), rot:Math.random()*7, life:5 });
+  const n=z.boss?22:7;
+  for(let i=0;i<n;i++){ const a=Math.random()*7, s=60+Math.random()*150;
+    Game.particles.push({x:z.x,y:z.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.35+Math.random()*0.3,color: Math.random()<0.6?'#b3122b':z.color, r:2+Math.random()*2.5}); }
+}
 // darken/lighten a #hex color -> rgb() string
 function shade(hex, amt){
   let c=(''+hex).replace('#',''); if(c.length===3) c=c.split('').map(x=>x+x).join('');
@@ -1303,6 +1314,14 @@ function render(){
   // neon mall floor
   drawBackground();
 
+  // blood stains on the floor (fade out)
+  for(const dc of Game.decals){
+    ctx.globalAlpha=Math.min(0.5, dc.life/5*0.5);
+    ctx.fillStyle='#4a0d18'; ctx.beginPath(); ctx.ellipse(dc.x,dc.y,dc.r,dc.r*0.55,dc.rot,0,7); ctx.fill();
+    ctx.fillStyle='#6e1322'; ctx.beginPath(); ctx.ellipse(dc.x,dc.y,dc.r*0.55,dc.r*0.32,dc.rot,0,7); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
   // mall atrium (center) — tier by store count
   drawMall();
 
@@ -1328,6 +1347,17 @@ function render(){
     ctx.fillStyle='#33405f'; roundRect(t.x-9,t.y-9,18,18,3); ctx.fill();
     ctx.fillStyle='#9fb0ff'; roundRect(t.x-6,t.y-6,12,12,2); ctx.fill();
     ctx.fillStyle='#33405f'; ctx.fillRect(t.x-2,t.y-14,4,10);
+  }
+
+  // death animations (squashing corpses) — under living zombies
+  for(const d of Game.deaths){
+    const k=d.t/d.life, a=Math.max(0,1-k);
+    ctx.globalAlpha=a*0.9;
+    ctx.fillStyle=d.color;
+    ctx.beginPath(); ctx.ellipse(d.x, d.y+d.r*0.45*k, d.r*(0.85+1.25*k), d.r*(0.8-0.62*k), 0,0,7); ctx.fill();
+    ctx.fillStyle='rgba(80,12,22,'+(a*0.55)+')';
+    ctx.beginPath(); ctx.ellipse(d.x, d.y+d.r*0.45*k, d.r*(0.5+0.95*k), d.r*(0.45-0.32*k), 0,0,7); ctx.fill();
+    ctx.globalAlpha=1;
   }
 
   // zombies
@@ -1565,13 +1595,32 @@ function drawZombie(z){
   ctx.beginPath(); ctx.arc(-z.r*0.18,-z.r*0.82,z.r*0.12,0,7); ctx.arc(z.r*0.18,-z.r*0.82,z.r*0.12,0,7); ctx.fill();
   ctx.fillStyle='rgba(255,210,210,.9)';
   ctx.beginPath(); ctx.arc(-z.r*0.21,-z.r*0.85,z.r*0.045,0,7); ctx.arc(z.r*0.15,-z.r*0.85,z.r*0.045,0,7); ctx.fill();
-  // type accents
-  if(z.type==='spitter'){ ctx.fillStyle='#5b2a8a'; ctx.beginPath(); ctx.arc(0,-z.r*0.45,z.r*0.2,0,7); ctx.fill(); }
-  if(z.type==='bloater'){ ctx.fillStyle='rgba(180,230,120,.5)'; ctx.beginPath(); ctx.arc(0,z.r*0.05,z.r*0.7+Math.sin(Game.time*4)*1.5,0,7); ctx.fill(); }
+  // ---- per-type close-up flavor ----
+  if(z.type==='brute'){ // heavy angry brow + scar
+    ctx.strokeStyle=outline; ctx.lineWidth=2.2*s;
+    ctx.beginPath(); ctx.moveTo(-z.r*0.34,-z.r*0.97); ctx.lineTo(-z.r*0.04,-z.r*0.86); ctx.moveTo(z.r*0.34,-z.r*0.97); ctx.lineTo(z.r*0.04,-z.r*0.86); ctx.stroke();
+    ctx.strokeStyle=shade(z.color,-40); ctx.lineWidth=1.6*s; ctx.beginPath(); ctx.moveTo(-z.r*0.4,-z.r*0.2); ctx.lineTo(-z.r*0.15,z.r*0.1); ctx.stroke();
+  }
+  if(z.type==='runner'){ // motion streaks behind
+    ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=2*s;
+    ctx.beginPath(); for(let i=0;i<3;i++){ const yy=-z.r*0.2+i*z.r*0.32; ctx.moveTo(-z.r*1.25,yy); ctx.lineTo(-z.r*0.65,yy); } ctx.stroke();
+  }
+  if(z.type==='spitter'){ // swollen acid gland + drip
+    ctx.fillStyle='#6a2f9c'; ctx.beginPath(); ctx.arc(0,-z.r*0.42,z.r*0.22,0,7); ctx.fill();
+    ctx.fillStyle='rgba(150,255,80,.85)'; ctx.beginPath(); ctx.arc(0,-z.r*0.42,z.r*0.1,0,7); ctx.fill();
+    ctx.fillStyle='rgba(150,255,80,.7)'; ctx.beginPath(); ctx.ellipse(0,-z.r*0.18,z.r*0.07,z.r*0.14,0,0,7); ctx.fill();
+  }
+  if(z.type==='bloater'){ // pulsing toxic aura + glowing cracks
+    ctx.fillStyle='rgba(180,255,90,'+(0.18+0.1*Math.sin(Game.time*4))+')';
+    ctx.beginPath(); ctx.arc(0,z.r*0.0,z.r*0.85+Math.sin(Game.time*4)*2,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(190,255,110,.7)'; ctx.lineWidth=1.6*s;
+    ctx.beginPath(); ctx.moveTo(-z.r*0.25,-z.r*0.1); ctx.lineTo(-z.r*0.05,z.r*0.08); ctx.lineTo(-z.r*0.18,z.r*0.28); ctx.stroke();
+  }
   if(z.saboteur||z.sabotaged){ drawIcon(ctx, 'saboteur', 0, -z.r*1.35, 16); }
-  if(z.boss){
-    ctx.fillStyle='#16306e'; roundRect(-z.r*0.55,-z.r*1.25,z.r*1.1,z.r*0.4,2*s); ctx.fill();
-    ctx.fillStyle='#ffcf3f'; ctx.beginPath(); ctx.arc(0,-z.r*1.05,z.r*0.13,0,7); ctx.fill();
+  if(z.boss){ // peaked cap with badge
+    ctx.fillStyle='#16306e'; roundRect(-z.r*0.58,-z.r*1.22,z.r*1.16,z.r*0.4,2*s); ctx.fill();
+    ctx.fillStyle='#0e2350'; roundRect(-z.r*0.62,-z.r*0.86,z.r*1.24,z.r*0.12,2*s); ctx.fill();   // brim
+    ctx.fillStyle='#ffcf3f'; ctx.beginPath(); ctx.arc(0,-z.r*1.02,z.r*0.13,0,7); ctx.fill();
   }
   ctx.restore();
   // hp bar
@@ -1958,7 +2007,8 @@ async function boot(){
     if(location.hash.indexOf('play')>=0){ startRun();
       if(location.hash.indexOf('demo')>=0){ // prebuild for screenshots
         ['cafe','gun','market'].forEach((id,i)=>{ Game.plots[i].store=id; Game.plots[i].lvl=2; });
-        Game.stats.projAdd=2; Game.cash=3000; Game.mallTier=2; recompute();
+        Game.stats.projAdd=2; Game.cash=3000; Game.mallTier=2; Game.wave=8; recompute();
+        ['shambler','runner','brute','spitter','bloater'].forEach((tp,i)=>{ spawnZombie(tp,false); const z=Game.zombies[Game.zombies.length-1]; z.x=CX-170+i*78; z.y=CY+150; z.hp=z.maxHp*0.7; });
       }
     }
   }, 350);
