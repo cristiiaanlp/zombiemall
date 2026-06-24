@@ -69,6 +69,16 @@ const CARD_POOL = [
   { id:'drone',  ico:'drone',  name:{es:'Dron de combate',en:'Combat Drone'}, desc:{es:'Un dron que dispara',en:'A drone that shoots'}, rare:true, apply:s=>addDrone() },
 ];
 
+// Synergies: owning the right card combo auto-unlocks an evolved effect.
+function ownsCard(s,id){ return (s.cardCounts && s.cardCounts[id]>0); }
+const SYNERGIES = [
+  { id:'thermal',    ico:'frost', name:{es:'Choque térmico',en:'Thermal Shock'},  desc:{es:'Los congelados arden mucho más',en:'Frozen foes burn far harder'}, need:s=>ownsCard(s,'cryo')&&ownsCard(s,'fire') },
+  { id:'inferno',    ico:'aura',  name:{es:'Aura infernal',en:'Inferno Aura'},     desc:{es:'Tu aura prende fuego',en:'Your aura sets enemies ablaze'},     need:s=>ownsCard(s,'aura')&&ownsCard(s,'fire') },
+  { id:'demolition', ico:'rocket',name:{es:'Demolición',en:'Demolition'},          desc:{es:'Explosiones enormes',en:'Huge explosions'},                    need:s=>ownsCard(s,'rocket')&&ownsCard(s,'bigshot') },
+  { id:'storm',      ico:'drone', name:{es:'Tormenta de drones',en:'Drone Storm'}, desc:{es:'Tus drones disparan balas que rebotan',en:'Your drones fire ricochet rounds'}, need:s=>ownsCard(s,'drone')&&ownsCard(s,'bounce') },
+  { id:'assassin',   ico:'crit',  name:{es:'Asesino',en:'Assassin'},               desc:{es:'+15% prob. crítico',en:'+15% crit chance'},                    need:s=>ownsCard(s,'crit')&&ownsCard(s,'critdmg'), apply:s=>s.crit+=0.15 },
+];
+
 // Meta upgrades (persistent, bought with tokens). cost grows per level.
 const META = [
   { id:'startHp',   ico:'heart', name:{es:'Vida inicial',en:'Start HP'},      desc:{es:'+30 vida máx',en:'+30 max HP'},          max:5, cost:l=>40+l*40,  val:l=>l*30 },
@@ -161,6 +171,7 @@ const I18N = {
     saboteurKill:'¡SABOTEADOR!', reviveTxt:'¡REVIVIDO!', perSec:'/s', tradeCTA:'COMERCIAR',
     incPerSec:'(+${v}/s)', tierAbandoned:'ABANDONADO', tierOperational:'OPERATIVO', tierFortified:'FORTIFICADO', tierMega:'MEGA-MALL',
     buildHint:'¡CONSTRUYE!', mallUp:'¡MALL MEJORADO!', firstBuild:'+$ ingresos! Sigue construyendo tu mall',
+    reroll:'Cambiar cartas', synergy:'¡SINERGIA!',
   },
   en:{
     tagline:'Survive while you build your shopping mall.',
@@ -208,6 +219,7 @@ const I18N = {
     saboteurKill:'SABOTEUR!', reviveTxt:'REVIVED!', perSec:'/s', tradeCTA:'TRADE',
     incPerSec:'(+${v}/s)', tierAbandoned:'ABANDONED', tierOperational:'OPERATIONAL', tierFortified:'FORTIFIED', tierMega:'MEGA-MALL',
     buildHint:'BUILD!', mallUp:'MALL UPGRADED!', firstBuild:'+$ income! Keep building your mall',
+    reroll:'Reroll cards', synergy:'SYNERGY!',
   },
 };
 
@@ -478,7 +490,7 @@ function startRun(){
   Game.allies=[]; Game.arrivals=[]; Game.trader=null;
   Game.arrivalTimer=7; Game.traderTimer=38; Game.eventTimer=26; Game.sabotageTimer=30; Game.fameBossTimer=30;
   Game.buildDiscount=0; Game.tut={};
-  Game.refugeOn=false; Game.mallTier=0;
+  Game.refugeOn=false; Game.mallTier=0; Game.syn={};
   // start simple: hide the refuge HUD until the systems unlock
   const fameRow=$('hud-fame'); if(fameRow) fameRow.classList.add('hidden');
   // meta: start with pharmacy
@@ -815,7 +827,7 @@ function update(dt){
     dr.ang += dt*2.2;
     dr.x = p.x + Math.cos(dr.ang)*46; dr.y = p.y + Math.sin(dr.ang)*46;
     dr.cd-=dt;
-    if(dr.cd<=0){ const tg=nearestZombie(dr.x,dr.y,300); if(tg){ fireBullet(dr.x,dr.y,tg.x,tg.y, e.dmg*0.45, e.pierce, false); dr.cd=0.45; } }
+    if(dr.cd<=0){ const tg=nearestZombie(dr.x,dr.y,300); if(tg){ const an=Math.atan2(tg.y-dr.y,tg.x-dr.x); fireBulletAng(dr.x,dr.y,an, e.dmg*0.45, e.pierce, false, Game.syn.storm?{bounce:1}:null); dr.cd=0.45; } }
   }
 
   // --- toxic aura (damages nearby foes) ---
@@ -823,7 +835,10 @@ function update(dt){
     Game._auraT=(Game._auraT||0)-dt;
     if(Game._auraT<=0){ Game._auraT=0.3;
       const rad=70+e.aura*22, dmg=(6+e.aura*4+e.dmg*0.1);
-      for(const z of Game.zombies.slice()){ if(dist(z.x,z.y,p.x,p.y)<rad+z.r) damageZombie(z,dmg,false); }
+      for(const z of Game.zombies.slice()){ if(dist(z.x,z.y,p.x,p.y)<rad+z.r){
+        if(Game.syn.inferno){ z.burnT=Math.max(z.burnT||0,1.5); z.burnDps=Math.max(z.burnDps||0,dmg*0.6); }
+        damageZombie(z,dmg,false);
+      } }
     }
   }
 
@@ -870,7 +885,7 @@ function update(dt){
           if(b.slow){ z.slowT=Math.max(z.slowT||0, 0.8+b.slow*0.5); z.slowF=Math.max(0.35, 0.7-b.slow*0.12); }
           if(b.burn){ z.burnT=Math.max(z.burnT||0, 2); z.burnDps=Math.max(z.burnDps||0, dmg*0.16*b.burn); }
           damageZombie(z,dmg,isCrit);
-          if(b.explosive){ explode(b.x,b.y,55,b.dmg*0.6); dead=true; break; }
+          if(b.explosive){ const dm=Game.syn.demolition?1.7:1; explode(b.x,b.y,55*dm,b.dmg*0.6*dm); dead=true; break; }
           if(b.hitSet) b.hitSet.add(z);
           b.pierce--;
           if(b.pierce<0){
@@ -900,7 +915,7 @@ function update(dt){
     if(z.hitFlash>0) z.hitFlash-=dt;
     // status effects: slow + burn (DoT)
     if(z.slowT>0) z.slowT-=dt;
-    if(z.burnT>0){ z.burnT-=dt; z.hp-=(z.burnDps||0)*dt;
+    if(z.burnT>0){ z.burnT-=dt; z.hp-=(z.burnDps||0)*((Game.syn.thermal&&z.slowT>0)?1.8:1)*dt;
       if(Math.random()<0.25 && Game.particles.length<380) Game.particles.push({x:z.x+(Math.random()-0.5)*z.r,y:z.y-z.r*0.3,vx:0,vy:-34,life:0.3,color:'#ff8a3c',r:2});
       if(z.hp<=0){ killZombie(z); continue; } }
     const smul = z.slowT>0 ? (z.slowF||0.5) : 1;
@@ -1975,9 +1990,28 @@ function drawCards(){
   chosen.forEach(c=>{
     const el=document.createElement('div'); el.className='lcard'+(c.rare?' rare':'');
     el.innerHTML=`<div class="lc-ico">${iconImg(c.ico,52)}</div><div class="lc-name">${tx(c.name)}</div><div class="lc-desc">${tx(c.desc)}</div>`;
-    el.onclick=()=>{ c.apply(Game.stats); Audio2.build(); recompute(); UI.hide('levelup'); Game.state='playing'; };
+    el.onclick=()=>{
+      c.apply(Game.stats);
+      Game.stats.cardCounts[c.id]=(Game.stats.cardCounts[c.id]||0)+1;
+      Audio2.build(); recompute(); checkSynergies();
+      UI.hide('levelup'); Game.state='playing';
+    };
     row.appendChild(el);
   });
+}
+// reroll the current hand (used by the rewarded-ad button)
+function rerollCards(){ if(Game.state==='levelup') drawCards(); }
+// award newly-completed synergies
+function checkSynergies(){
+  for(const sy of SYNERGIES){
+    if(!Game.syn[sy.id] && sy.need(Game.stats)){
+      Game.syn[sy.id]=true;
+      if(sy.apply) sy.apply(Game.stats);
+      showWaveBanner(t('synergy')+' '+tx(sy.name).toUpperCase());
+      toast(t('synergy')+' '+tx(sy.name)+' — '+tx(sy.desc), '#ffd23f');
+      Audio2.levelup(); CG.happytime();
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -2023,6 +2057,7 @@ function bindUI(){
 
   $('btn-build-close').onclick=closeBuild;
   $('btn-trader-close').onclick=closeTrader;
+  $('btn-reroll').onclick=async()=>{ const ok=await CG.rewardedAd(); if(ok) rerollCards(); };
   $('btn-pause').onclick=pauseGame;
   $('btn-resume').onclick=resumeGame;
   $('btn-quit').onclick=async()=>{ CG.gameplayStop(); await CG.midgame(); UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens(); };
@@ -2090,6 +2125,7 @@ async function boot(){
         ['shambler','runner','brute','spitter','bloater'].forEach((tp,i)=>{ spawnZombie(tp,false); const z=Game.zombies[Game.zombies.length-1]; z.x=CX-170+i*78; z.y=CY+150; z.hp=z.maxHp*0.7; });
       }
       if(location.hash.indexOf('cards')>=0) openLevelUp();
+      if(location.hash.indexOf('syn')>=0){ Game.stats.cardCounts.cryo=1; Game.stats.cardCounts.fire=1; Game.stats.slow=1; Game.stats.burn=1; checkSynergies(); openLevelUp(); }
     }
   }, 350);
 
