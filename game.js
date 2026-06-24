@@ -428,7 +428,7 @@ const Game = {
   state:'loading',   // loading|menu|playing|paused|levelup|build|gameover|ad
   last:0, acc:0,
   // run data
-  player:null, zombies:[], bullets:[], gems:[], coins:[], particles:[], texts:[], turrets:[], spits:[], deaths:[], decals:[], drones:[],
+  player:null, zombies:[], bullets:[], gems:[], coins:[], particles:[], texts:[], turrets:[], spits:[], deaths:[], decals:[], drones:[], shocks:[],
   plots:[], stats:null,
   cash:0, time:0, wave:1, waveTimer:0, kills:0, bossesKilled:0,
   spawnTimer:0, incomeTimer:0, airstrikeTimer:0,
@@ -480,7 +480,7 @@ function startRun(){
   const s = freshStats();
   Game.stats = s;
   Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0, walkT:0, lastFire:0, invuln:0 };
-  Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[]; Game.deaths=[]; Game.decals=[]; Game.drones=[];
+  Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[]; Game.deaths=[]; Game.decals=[]; Game.drones=[]; Game.shocks=[];
   Game.plots = makePlots();
   Game.cash = 75 + META[1].val(Save.metaLvl('startCash'));
   Game.time=0; Game.wave=1; Game.waveTimer=0; Game.kills=0; Game.bossesKilled=0;
@@ -710,7 +710,8 @@ function spawnZombie(type, isBoss){
     bounty: def.bounty*(isBoss?60:1)*(1+Game.wave*0.05),
     hitFlash:0, atkCd:0, ranged:def.ranged, explodes:def.explodes, boss:isBoss||false,
   };
-  if(isBoss){ z.r=def.r*2.4; z.color='#c0392b'; z.name='THE MALL COP'; }
+  if(isBoss){ z.r=def.r*2.4; z.color='#c0392b'; z.name='THE MALL COP';
+    z.bstate='approach'; z.bcd=3; z.btimer=0; z.tele=0; z.teleType=''; z.teleAng=0; z.dvx=0; z.dvy=0; z.spd=def.spd*0.8; }
   Game.zombies.push(z);
 }
 
@@ -942,6 +943,8 @@ function update(dt){
       if(dp<z.r+p.r){ z.atkCd-=dt; if(z.atkCd<=0){ hurtPlayer(z.dmg); z.atkCd=0.6; } }
       continue;
     }
+    // boss attack pattern
+    if(z.boss){ bossUpdate(z,dt,p,smul); continue; }
     const ang=Math.atan2(p.y-z.y, p.x-z.x);
     const d=dist(z.x,z.y,p.x,p.y);
     if(z.ranged && d<340){
@@ -974,6 +977,9 @@ function update(dt){
   for(let i=Game.texts.length-1;i>=0;i--){ const t=Game.texts[i]; t.y-=30*dt; t.life-=dt; if(t.life<=0) Game.texts.splice(i,1); }
   for(let i=Game.deaths.length-1;i>=0;i--){ const dthc=Game.deaths[i]; dthc.t+=dt; if(dthc.t>=dthc.life) Game.deaths.splice(i,1); }
   for(let i=Game.decals.length-1;i>=0;i--){ const dc=Game.decals[i]; dc.life-=dt; if(dc.life<=0) Game.decals.splice(i,1); }
+  for(let i=Game.shocks.length-1;i>=0;i--){ const sh=Game.shocks[i]; sh.r += (sh.maxR/0.55)*dt; sh.life-=dt;
+    if(!sh.hit && dist(p.x,p.y,sh.x,sh.y) <= sh.r){ hurtPlayer(sh.dmg); sh.hit=true; }
+    if(sh.life<=0) Game.shocks.splice(i,1); }
 
   if(s.hp<=0) onPlayerDead();
 
@@ -1039,6 +1045,54 @@ function explode(x,y,radius,dmg){
   for(const z of Game.zombies.slice()){
     if(dist(x,y,z.x,z.y)<radius+z.r) damageZombie(z,dmg,false);
   }
+}
+
+/* ---- BOSS: The Mall Cop — telegraphed attack pattern, 2 phases ---- */
+function bossUpdate(z,dt,p,smul){
+  smul = smul||1;
+  if(z.tele>0) z.tele-=dt;
+  const ph2 = z.hp < z.maxHp*0.5;          // enrage under 50%
+  const d = dist(z.x,z.y,p.x,p.y);
+  if(z.bstate==='approach'){
+    const ang=Math.atan2(p.y-z.y,p.x-z.x), spd=z.spd*(ph2?1.3:1)*smul;
+    z.x+=Math.cos(ang)*spd*dt; z.y+=Math.sin(ang)*spd*dt;
+    if(d<z.r+p.r){ z.atkCd-=dt; if(z.atkCd<=0){ hurtPlayer(z.dmg); z.atkCd=0.8; } }
+    z.bcd-=dt;
+    if(z.bcd<=0){
+      const r=Math.random();
+      if(d>190 && r<0.55) bossStartCharge(z,p);
+      else if(r<0.8) bossStartSlam(z);
+      else bossSummon(z,ph2);
+    }
+  } else if(z.bstate==='windup'){           // charge telegraph
+    z.btimer-=dt; if(z.btimer<=0){ z.bstate='dash'; z.btimer=ph2?0.6:0.5; Game.shake=6; }
+  } else if(z.bstate==='dash'){
+    z.x+=z.dvx*dt; z.y+=z.dvy*dt;
+    for(let k=0;k<2;k++) spawnParticle(z.x,z.y,'#ff5e7a');
+    if(d<z.r+p.r){ z.atkCd-=dt; if(z.atkCd<=0){ hurtPlayer(z.dmg*1.7); z.atkCd=0.5; } }
+    z.btimer-=dt; if(z.btimer<=0){ z.bstate='approach'; z.bcd=ph2?1.8:2.8; }
+  } else if(z.bstate==='slamwind'){         // slam telegraph
+    z.btimer-=dt;
+    if(z.btimer<=0){
+      Game.shocks.push({x:z.x,y:z.y,r:z.r,maxR:180,life:0.55,dmg:z.dmg*1.4,hit:false});
+      Game.shake=14; Audio2.boss(); z.bstate='approach'; z.bcd=ph2?2.2:3.2;
+    }
+  }
+}
+function bossStartCharge(z,p){
+  const ang=Math.atan2(p.y-z.y,p.x-z.x), sp=480;
+  z.dvx=Math.cos(ang)*sp; z.dvy=Math.sin(ang)*sp;
+  z.bstate='windup'; z.btimer=0.7; z.tele=0.7; z.teleType='charge'; z.teleAng=ang;
+}
+function bossStartSlam(z){ z.bstate='slamwind'; z.btimer=0.6; z.tele=0.6; z.teleType='slam'; }
+function bossSummon(z,ph2){
+  z.tele=0.5; z.teleType='summon';
+  const n=ph2?5:3;
+  for(let i=0;i<n && Game.zombies.length<280;i++){
+    const a=Math.random()*7; spawnZombie(Math.random()<0.5?'runner':'shambler',false);
+    const nz=Game.zombies[Game.zombies.length-1]; nz.x=z.x+Math.cos(a)*46; nz.y=z.y+Math.sin(a)*46;
+  }
+  z.bstate='approach'; z.bcd=ph2?2.6:3.8;
 }
 
 function hurtPlayer(dmg){
@@ -1450,6 +1504,31 @@ function render(){
     ctx.strokeStyle='rgba(150,255,90,.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(pl.x,pl.y,rad,0,7); ctx.stroke();
   }
 
+  // boss telegraphs (on the floor, under zombies)
+  for(const z of Game.zombies){
+    if(!z.boss) continue;
+    if(z.bstate==='windup' && z.teleType==='charge'){ // charge danger lane
+      const a=z.teleAng, blink=0.3+0.4*Math.abs(Math.sin(Game.time*16));
+      ctx.save(); ctx.translate(z.x,z.y); ctx.rotate(a);
+      ctx.fillStyle='rgba(255,60,90,'+blink+')'; roundRect(0,-14,300,28,6); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(290,-22); ctx.lineTo(320,0); ctx.lineTo(290,22); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    if(z.bstate==='slamwind'){ // expanding danger circle
+      const k=1-(z.btimer/0.6), blink=0.25+0.45*Math.abs(Math.sin(Game.time*16));
+      ctx.strokeStyle='rgba(255,60,90,'+blink+')'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(z.x,z.y,40+k*150,0,7); ctx.stroke();
+    }
+  }
+  // boss shockwaves
+  for(const sh of Game.shocks){
+    const a=Math.max(0,sh.life/0.55);
+    ctx.strokeStyle='rgba(255,90,120,'+(a*0.9)+')'; ctx.lineWidth=10;
+    ctx.beginPath(); ctx.arc(sh.x,sh.y,sh.r,0,7); ctx.stroke();
+    ctx.strokeStyle='rgba(255,210,80,'+(a*0.6)+')'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(sh.x,sh.y,sh.r,0,7); ctx.stroke();
+  }
+
   // zombies
   for(const z of Game.zombies) drawZombie(z);
 
@@ -1486,6 +1565,18 @@ function render(){
     ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.strokeText(ft.txt,ft.x,ft.y);
     ctx.fillStyle=ft.color; ctx.fillText(ft.txt,ft.x,ft.y); }
   ctx.globalAlpha=1;
+
+  // boss health bar (top center)
+  let boss=null; for(const z of Game.zombies){ if(z.boss){ boss=z; break; } }
+  if(boss){
+    const bw=440, bx=CX-bw/2, by=78, frac=Math.max(0,boss.hp/boss.maxHp);
+    ctx.fillStyle='rgba(10,4,18,.8)'; roundRect(bx-4,by-4,bw+8,22,6); ctx.fill();
+    ctx.fillStyle='#3a0f1a'; roundRect(bx,by,bw,14,4); ctx.fill();
+    ctx.fillStyle = boss.hp<boss.maxHp*0.5 ? '#ff3b5c' : '#ff5e7a';
+    roundRect(bx,by,bw*frac,14,4); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 13px Bungee'; ctx.textAlign='center';
+    ctx.fillText('THE MALL COP', CX, by-8);
+  }
 
   ctx.restore();
 }
@@ -1718,6 +1809,7 @@ function drawZombie(z){
   }
   if(z.saboteur||z.sabotaged){ drawIcon(ctx, 'saboteur', 0, -z.r*1.35, 16); }
   if(z.boss){ // peaked cap with badge
+    if(z.hp<z.maxHp*0.5){ ctx.fillStyle='rgba(255,40,60,'+(0.12+0.08*Math.sin(Game.time*9))+')'; ctx.beginPath(); ctx.arc(0,0,z.r*1.5,0,7); ctx.fill(); }
     ctx.fillStyle='#16306e'; roundRect(-z.r*0.58,-z.r*1.22,z.r*1.16,z.r*0.4,2*s); ctx.fill();
     ctx.fillStyle='#0e2350'; roundRect(-z.r*0.62,-z.r*0.86,z.r*1.24,z.r*0.12,2*s); ctx.fill();   // brim
     ctx.fillStyle='#ffcf3f'; ctx.beginPath(); ctx.arc(0,-z.r*1.02,z.r*0.13,0,7); ctx.fill();
@@ -2140,6 +2232,7 @@ async function boot(){
       }
       if(location.hash.indexOf('cards')>=0) openLevelUp();
       if(location.hash.indexOf('syn')>=0){ Game.stats.cardCounts.cryo=1; Game.stats.cardCounts.fire=1; Game.stats.slow=1; Game.stats.burn=1; checkSynergies(); openLevelUp(); }
+      if(location.hash.indexOf('boss')>=0){ Game.wave=10; spawnZombie('brute',true); const b=Game.zombies[Game.zombies.length-1]; b.x=CX; b.y=CY-30; b.hp=b.maxHp*0.45; b.bstate='slamwind'; b.btimer=0.35; }
     }
   }, 350);
 
