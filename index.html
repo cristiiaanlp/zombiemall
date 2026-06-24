@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#16091f" />
-  <title>Zombie Mall Tycoon Survivor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2316091f'/%3E%3Ccircle cx='32' cy='35' r='19' fill='%2386d44a'/%3E%3Ccircle cx='25' cy='31' r='4' fill='%23ff3b3b'/%3E%3Ccircle cx='39' cy='31' r='4' fill='%23ff3b3b'/%3E%3Crect x='24' y='44' width='16' height='4' rx='2' fill='%2316091f'/%3E%3C/svg%3E" />
+  <title>Zombie Mall</title>
   <link rel="stylesheet" href="style.css" />
   <!-- CrazyGames SDK (loads if available; game runs fine without it) -->
   <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
@@ -81,8 +82,8 @@
         <span id="lvl-text">Lv 1</span>
       </div>
 
-      <!-- Refuge Fame -->
-      <div class="hud-fame">
+      <!-- Refuge Fame (revealed after the first ~30s / 2nd store) -->
+      <div class="hud-fame" id="hud-fame">
         <span id="fame-tier">Hideout</span>
         <div class="fame-bar"><div id="fame-fill"></div></div>
         <span class="surv"><span class="stat-ico" data-ico="surv"></span> <span id="surv-text">0</span></span>

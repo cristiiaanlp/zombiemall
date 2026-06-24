@@ -58,6 +58,7 @@ html,body{
   justify-content:flex-end;padding-bottom:min(7vh,60px);gap:12px;
   background:
     linear-gradient(to bottom, rgba(11,5,20,.15) 0%, rgba(11,5,20,.45) 46%, rgba(11,5,20,.9) 80%, #0b0514 100%),
+    url('menu_bg.jpg') center/cover no-repeat,
     url('cover_landscape.png') center/cover no-repeat;
 }
 #menu .logo{display:none;}                 /* cover already shows the title */

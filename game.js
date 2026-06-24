@@ -14,8 +14,8 @@ const SAVE_KEY = 'zmts_save_v1';
 
 // Store definitions (see GDD §5). buff is applied globally and scales per level.
 const STORES = [
-  { id:'cafe',    ico:'cafe',     cost:20,   income:2, buff:null,                name:{es:'Cafetería',en:'Café'},          desc:{es:'Ingresos puros baratos.',en:'Cheap pure income.'} },
-  { id:'gun',     ico:'gun',      cost:40,   income:1, buff:{k:'dmg',   v:0.12}, name:{es:'Armería',en:'Gun Shop'},              desc:{es:'+12% daño de arma.',en:'+12% weapon damage.'} },
+  { id:'cafe',    ico:'cafe',     cost:20,   income:3, buff:null,                name:{es:'Cafetería',en:'Café'},          desc:{es:'Ingresos puros baratos.',en:'Cheap pure income.'} },
+  { id:'gun',     ico:'gun',      cost:30,   income:1, buff:{k:'dmg',   v:0.12}, name:{es:'Armería',en:'Gun Shop'},              desc:{es:'+12% daño de arma.',en:'+12% weapon damage.'} },
   { id:'pharma',  ico:'pharma',   cost:80,   income:1, buff:{k:'heals', v:1},    name:{es:'Farmacia',en:'Pharmacy'},             desc:{es:'Cura al construir + 1 HP/s.',en:'Heal on build + 1 HP/s.'} },
   { id:'rest',    ico:'rest',     cost:120,  income:3, buff:{k:'regen', v:0.6},  name:{es:'Restaurante',en:'Restaurant'},        desc:{es:'+0.6 HP/s regeneración.',en:'+0.6 HP/s regen.'} },
   { id:'gym',     ico:'gym',      cost:100,  income:1, buff:{k:'speed', v:0.08}, name:{es:'Gimnasio',en:'Gym'},                  desc:{es:'+8% velocidad.',en:'+8% move speed.'} },
@@ -146,6 +146,7 @@ const I18N = {
     discount:'Próxima tienda al 50%', turncoat:'¡Un superviviente era un INFILTRADO INFECTADO!',
     saboteurKill:'¡SABOTEADOR!', reviveTxt:'¡REVIVIDO!', perSec:'/s', tradeCTA:'COMERCIAR',
     incPerSec:'(+${v}/s)', tierAbandoned:'ABANDONADO', tierOperational:'OPERATIVO', tierFortified:'FORTIFICADO', tierMega:'MEGA-MALL',
+    buildHint:'¡CONSTRUYE!', mallUp:'¡MALL MEJORADO!', firstBuild:'+$ ingresos! Sigue construyendo tu mall',
   },
   en:{
     tagline:'Survive while you build your shopping mall.',
@@ -192,6 +193,7 @@ const I18N = {
     discount:'Next store 50% off', turncoat:'A survivor was an INFECTED INFILTRATOR!',
     saboteurKill:'SABOTEUR!', reviveTxt:'REVIVED!', perSec:'/s', tradeCTA:'TRADE',
     incPerSec:'(+${v}/s)', tierAbandoned:'ABANDONED', tierOperational:'OPERATIONAL', tierFortified:'FORTIFIED', tierMega:'MEGA-MALL',
+    buildHint:'BUILD!', mallUp:'MALL UPGRADED!', firstBuild:'+$ income! Keep building your mall',
   },
 };
 
@@ -272,8 +274,42 @@ const CG = {
 const Audio2 = {
   ctx:null, muted:false, _adMuted:false,
   init(){ try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} this.muted = Save.data.muted; },
-  resume(){ try{ if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); }catch(e){} },
+  resume(){ try{ if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); }catch(e){} this.bgmStart(); },
   adMute(on){ this._adMuted=on; },   // CrazyGames: mute audio while an ad is showing
+  // ---- procedural background music (no assets; mutable; silent during ads) ----
+  _bgm:{on:false,step:0,timer:null},
+  bgmNote(freq,dur,type,vol,t){
+    if(!this.ctx) return;
+    try{
+      const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+      o.type=type; o.frequency.value=freq;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(vol,t+0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start(t); o.stop(t+dur+0.03);
+    }catch(e){}
+  },
+  bgmStart(){
+    if(this._bgm.on || !this.ctx) return;
+    this._bgm.on=true;
+    const self=this;
+    const roots=[110.00,87.31,130.81,98.00];      // Am · F · C · G
+    const semi=n=>Math.pow(2,n/12);
+    try{
+      this._bgm.timer=setInterval(()=>{
+        if(self.muted || self._adMuted || !self.ctx) return;
+        const step=self._bgm.step++ %16;
+        const wave=(typeof Game!=='undefined' && Game.stats)?Game.wave:0;
+        const intense=Math.min(1, wave/15);
+        const t=self.ctx.currentTime+0.06;
+        const root=roots[Math.floor(step/4)%4];
+        if(step%4===0) self.bgmNote(root/2,0.55,'triangle',0.045+0.02*intense,t);  // bass
+        if(step%2===0) self.bgmNote(root*semi([0,7,12,16][(step/2)%4]),0.16,'sine',0.022+0.018*intense,t); // arp
+        if(intense>0.4 && step%8===4) self.bgmNote(root*semi(19),0.22,'triangle',0.018*intense,t); // sparkle
+      }, 150);
+    }catch(e){}
+  },
   blip(freq,dur,type,vol){
     if(this.muted || this._adMuted || !this.ctx) return;
     try{
@@ -377,6 +413,7 @@ const Game = {
   allies:[], arrivals:[], trader:null,
   arrivalTimer:0, traderTimer:0, eventTimer:0, sabotageTimer:0, fameBossTimer:0,
   buildDiscount:0, tut:{},
+  refugeOn:false, mallTier:0,   // progressive disclosure + mall growth tracking
 
   pauseForAd(on){
     if(on){ this._prevState=this.state; this.state='ad'; Audio2.adMute(true); CG.gameplayStop(); }
@@ -412,7 +449,7 @@ function startRun(){
   Game.player = { x:CX, y:CY+120, r:14, fireCd:0, hitFlash:0, dir:0, walkT:0, lastFire:0 };
   Game.zombies=[]; Game.bullets=[]; Game.gems=[]; Game.coins=[]; Game.particles=[]; Game.texts=[]; Game.turrets=[]; Game.spits=[];
   Game.plots = makePlots();
-  Game.cash = 50 + META[1].val(Save.metaLvl('startCash'));
+  Game.cash = 75 + META[1].val(Save.metaLvl('startCash'));
   Game.time=0; Game.wave=1; Game.waveTimer=0; Game.kills=0; Game.bossesKilled=0;
   Game.spawnTimer=0; Game.incomeTimer=0; Game.airstrikeTimer=0;
   Game.level=1; Game.xp=0; Game.xpNext=11;
@@ -424,6 +461,9 @@ function startRun(){
   Game.allies=[]; Game.arrivals=[]; Game.trader=null;
   Game.arrivalTimer=7; Game.traderTimer=38; Game.eventTimer=26; Game.sabotageTimer=30; Game.fameBossTimer=30;
   Game.buildDiscount=0; Game.tut={};
+  Game.refugeOn=false; Game.mallTier=0;
+  // start simple: hide the refuge HUD until the systems unlock
+  const fameRow=$('hud-fame'); if(fameRow) fameRow.classList.add('hidden');
   // meta: start with pharmacy
   if(Save.metaLvl('pharmaStart')>0){ Game.plots[0].store='pharma'; Game.plots[0].lvl=1; }
   recompute();
@@ -690,10 +730,14 @@ function update(dt){
   Game.waveTimer += dt;
   if(Game.waveTimer >= 45) nextWave();
 
-  // passive fame: a bigger, busier refuge gets noticed
+  // progressive disclosure: keep the first ~30s pure (kill -> build -> money),
+  // then unlock the refuge fame systems so casual players aren't overwhelmed.
   const storesBuilt = Game.plots.filter(pl=>pl.store).length;
-  addFame(dt*(0.35 + 0.05*storesBuilt + 0.04*Game.allies.length));
-  if(Game.fameFlash>0) Game.fameFlash-=dt;
+  if(!Game.refugeOn && Game.time>=30) activateRefuge();
+  if(Game.refugeOn){
+    addFame(dt*(0.35 + 0.05*storesBuilt + 0.04*Game.allies.length));
+    if(Game.fameFlash>0) Game.fameFlash-=dt;
+  }
 
   // boost timer
   if(Game.boostTimer>0){ Game.boostTimer-=dt; if(Game.boostTimer<=0) recompute(); }
@@ -731,8 +775,8 @@ function update(dt){
     }
   }
 
-  // --- refuge fame director (arrivals, allies, traders, saboteurs, events) ---
-  updateRefuge(dt);
+  // --- refuge fame director (only after it unlocks) ---
+  if(Game.refugeOn) updateRefuge(dt);
 
   // --- turrets ---
   for(const t of Game.turrets){
@@ -759,8 +803,11 @@ function update(dt){
 
   // --- spawning ---
   Game.spawnTimer += dt;
-  const si=spawnInterval();
-  while(Game.spawnTimer>=si && Game.zombies.length<260){
+  // grace window: first 12s are calmer so the player can land the first builds
+  const grace = Game.time<12 ? 2.6 : 1;
+  const graceCap = Game.time<12 ? 10 : 260;
+  const si=spawnInterval()*grace;
+  while(Game.spawnTimer>=si && Game.zombies.length<graceCap){
     Game.spawnTimer-=si;
     const burst = 1 + Math.floor(Game.wave/6);
     for(let i=0;i<burst;i++) spawnZombie(pickEnemyType(),false);
@@ -979,6 +1026,17 @@ function fameTierIndex(){
   for(let i=0;i<FAME_TIERS.length;i++){ if(Game.fame>=FAME_TIERS[i].min) idx=i; }
   return idx;
 }
+// unlock the deeper systems once the player already "gets" the core loop
+function activateRefuge(){
+  if(Game.refugeOn) return;
+  Game.refugeOn=true;
+  const fameRow=$('hud-fame'); if(fameRow) fameRow.classList.remove('hidden');
+  // fresh timers so events start staggered, not all at once
+  Game.arrivalTimer=6; Game.traderTimer=20; Game.eventTimer=18; Game.sabotageTimer=28;
+  toast(t('fameTip'),'#ffcf3f');
+}
+// mall visual tier from number of built stores (lower thresholds = faster growth)
+function mallTierOf(count){ return count>=6?3 : count>=3?2 : count>=1?1 : 0; }
 function addFame(v){
   Game.fame = Math.max(0, Game.fame + v);
   const idx = fameTierIndex();
@@ -1246,6 +1304,7 @@ function render(){
 
   // plots
   for(const p of Game.plots) drawPlot(p);
+  drawBuildBeacon();
 
   // gems (acid lime, with glow)
   for(const g of Game.gems){
@@ -1314,7 +1373,7 @@ function drawBackground(){
 
 function drawMall(){
   const built = Game.plots.filter(p=>p.store).length;
-  const tier = built>=9?3:built>=5?2:built>=1?1:0;
+  const tier = mallTierOf(built);
   const colors=['#2a1838','#3a1d52','#2d2a5e','#4a2a52'];
   const glow=['#3a2150','#a24adf','#22e0ff','#ffc23c'];
   const signCol=['#7a6699','#c98aff','#22e0ff','#ffc23c'][tier];
@@ -1404,6 +1463,27 @@ function drawPerson(x, y, phase, opt){
   ctx.restore();
 }
 
+// Big "BUILD HERE" callout over the nearest empty plot until the first store exists.
+function drawBuildBeacon(){
+  if(Game.mallTier>0) return;                 // already built something
+  const p=Game.player; if(!p) return;
+  let best=null,bd=1e9;
+  for(const pl of Game.plots){ if(pl.store) continue; const d=dist(pl.x,pl.y,p.x,p.y); if(d<bd){bd=d;best=pl;} }
+  if(!best) return;
+  const bob=Math.sin(Game.time*5)*5;
+  // glowing ring
+  ctx.save();
+  ctx.strokeStyle='rgba(255,194,60,'+(0.5+0.4*Math.sin(Game.time*5))+')'; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.arc(best.x,best.y,40+Math.sin(Game.time*5)*4,0,7); ctx.stroke();
+  // bouncing arrow + label above the plot
+  ctx.fillStyle='#ffc23c'; ctx.font='bold 26px Rajdhani'; ctx.textAlign='center';
+  ctx.fillText('▼', best.x, best.y-44+bob);
+  ctx.fillStyle='#fff'; ctx.font='800 18px Bungee';
+  ctx.shadowColor='#ff2e88'; ctx.shadowBlur=12;
+  ctx.fillText(t('buildHint'), best.x, best.y-60+bob);
+  ctx.restore();
+}
+
 function drawZombie(z){
   const flash = z.hitFlash>0;
   const s = z.r/13;
@@ -1488,12 +1568,15 @@ function drawPlayer(){
   // soft cyan aura so the hero always reads against the crowd
   ctx.fillStyle='rgba(34,224,255,.18)'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r+9,0,7); ctx.fill();
   drawPerson(p.x, p.y, p.walkT||0, { skin:'#f3c79c', cloth: hurt?'#ff7a9a':'#22e0ff', outline:'#063a47', s:1.15, arms:'down' });
-  // aiming gun on top, rotated toward facing
+  // weapon visibly upgrades: longer barrel with damage, DUAL-WIELD with extra projectiles
+  const E = Game.buffs ? eff() : {proj:1,dmg:10};
+  const dual = E.proj>=2;
+  const len = 16 + Math.min(10, E.dmg*0.15);    // barrel grows with damage
+  const flash = Game.time - (p.lastFire||-9) < 0.05;
   ctx.save(); ctx.translate(p.x, p.y-4); ctx.rotate(p.dir);
-  ctx.fillStyle='#2a2a2a'; ctx.fillRect(4,-2.2,18,4.4);
-  ctx.fillStyle='#444';    ctx.fillRect(0,-3.4,9,6.8);
-  // muzzle flash right after firing
-  if(Game.time - (p.lastFire||-9) < 0.05){ ctx.fillStyle='rgba(255,220,120,.95)'; ctx.beginPath(); ctx.arc(24,0,5,0,7); ctx.fill(); }
+  const gun=(off)=>{ ctx.fillStyle='#2a2a2a'; ctx.fillRect(4,off-2.0,len,4.0); ctx.fillStyle='#444'; ctx.fillRect(0,off-3.2,9,6.4);
+    if(flash){ ctx.fillStyle='rgba(255,220,120,.95)'; ctx.beginPath(); ctx.arc(len+6,off,5,0,7); ctx.fill(); } };
+  if(dual){ gun(-5); gun(5); } else { gun(0); }
   ctx.restore();
 }
 
@@ -1640,13 +1723,22 @@ function storeRow(def, costTxt, afford, desc){
 }
 
 function afterBuild(def, plot){
-  Audio2.build();
-  for(let i=0;i<14;i++) spawnParticle(plot.x,plot.y,'#36e0c8');
+  Audio2.build(); Audio2.coin();
+  Game.shake=Math.max(Game.shake,7);
+  for(let i=0;i<26;i++) spawnParticle(plot.x,plot.y, Math.random()<0.5?'#36e0c8':'#ffc23c');
+  // juicy growth feedback: store name + income popping out
+  const incNow=(def.income*Math.pow(1.5,plot.lvl)).toFixed(0);
+  addText(plot.x, plot.y-42, tx(def.name), '#36e0c8', 18);
+  addText(plot.x, plot.y-22, '+$'+incNow+t('perSec'), '#b6ff3b', 16);
   // pharmacy heal burst
   if(def.id==='pharma'){ Game.stats.hp=Math.min(eff().maxHp, Game.stats.hp+8*plot.lvl); }
-  // building/expanding the refuge raises its fame
-  addFame(def.cost*0.1);
-  if(!Game.tut.fame){ Game.tut.fame=1; toast(t('fameTip'),'#ffcf3f'); }
+  if(Game.refugeOn) addFame(def.cost*0.1);
+  // MALL GROWTH celebration — the core "I'm rebuilding a mall" payoff
+  const built=Game.plots.filter(p=>p.store).length;
+  const nt=mallTierOf(built);
+  if(nt>Game.mallTier){ Game.mallTier=nt; showWaveBanner(t('mallUp')); Game.shake=Math.max(Game.shake,13); CG.happytime(); }
+  // unlock deeper systems once the player is actively building
+  if(!Game.refugeOn && built>=2) activateRefuge();
   recompute();
   // refresh menu (stay open for chained upgrades)
   openBuild(plot);
@@ -1812,7 +1904,12 @@ async function boot(){
   setTimeout(()=>{
     UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens();
     // dev/testing hook: open index with #play to jump straight into a run
-    if(location.hash.indexOf('play')>=0){ startRun(); }
+    if(location.hash.indexOf('play')>=0){ startRun();
+      if(location.hash.indexOf('demo')>=0){ // prebuild for screenshots
+        ['cafe','gun','market'].forEach((id,i)=>{ Game.plots[i].store=id; Game.plots[i].lvl=2; });
+        Game.stats.projAdd=2; Game.cash=3000; Game.mallTier=2; recompute();
+      }
+    }
   }, 350);
 
   requestAnimationFrame(loop);

@@ -1,0 +1,5 @@
+# build artifacts & dev-only files
+dist/
+zombiemall.zip
+_*.png
+*.tmp.png
