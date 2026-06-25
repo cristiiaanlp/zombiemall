@@ -1,8 +1,8 @@
 /* Self-hosted fonts (no external requests — CrazyGames-friendly) */
-@font-face{font-family:'Bungee';font-style:normal;font-weight:400;font-display:swap;src:url('fonts/bungee-400.woff2') format('woff2');}
-@font-face{font-family:'Rajdhani';font-style:normal;font-weight:500;font-display:swap;src:url('fonts/rajdhani-500.woff2') format('woff2');}
-@font-face{font-family:'Rajdhani';font-style:normal;font-weight:600;font-display:swap;src:url('fonts/rajdhani-600.woff2') format('woff2');}
-@font-face{font-family:'Rajdhani';font-style:normal;font-weight:700;font-display:swap;src:url('fonts/rajdhani-700.woff2') format('woff2');}
+@font-face{font-family:'Bungee';font-style:normal;font-weight:400;font-display:swap;src:url('bungee-400.woff2') format('woff2');}
+@font-face{font-family:'Rajdhani';font-style:normal;font-weight:500;font-display:swap;src:url('rajdhani-500.woff2') format('woff2');}
+@font-face{font-family:'Rajdhani';font-style:normal;font-weight:600;font-display:swap;src:url('rajdhani-600.woff2') format('woff2');}
+@font-face{font-family:'Rajdhani';font-style:normal;font-weight:700;font-display:swap;src:url('rajdhani-700.woff2') format('woff2');}
 
 :root{
   /* Neon apocalypse-mall palette */
