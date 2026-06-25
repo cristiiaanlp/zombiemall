@@ -3,3 +3,10 @@ dist/
 zombiemall.zip
 _*.png
 *.tmp.png
+# preview videos (regenerable; upload to the portal, don't bloat the repo)
+*.mp4
+_frames/
+# dev tooling for video capture (not part of the game bundle)
+node_modules/
+package.json
+package-lock.json

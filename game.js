@@ -444,6 +444,7 @@ const Game = {
   arrivalTimer:0, traderTimer:0, eventTimer:0, sabotageTimer:0, fameBossTimer:0,
   buildDiscount:0, tut:{},
   refugeOn:false, mallTier:0,   // progressive disclosure + mall growth tracking
+  attract:false,                // self-playing demo mode (for preview videos)
 
   pauseForAd(on){
     if(on){ this._prevState=this.state; this.state='ad'; Audio2.adMute(true); CG.gameplayStop(); }
@@ -494,7 +495,7 @@ function startRun(){
   Game.allies=[]; Game.arrivals=[]; Game.trader=null;
   Game.arrivalTimer=7; Game.traderTimer=38; Game.eventTimer=26; Game.sabotageTimer=30; Game.fameBossTimer=30;
   Game.buildDiscount=0; Game.tut={};
-  Game.refugeOn=false; Game.mallTier=0; Game.syn={};
+  Game.refugeOn=false; Game.mallTier=0; Game.syn={}; Game.attract=false;
   { const sb=$('syn-bar'); if(sb) sb.innerHTML=''; }
   // start simple: hide the refuge HUD until the systems unlock
   const fameRow=$('hud-fame'); if(fameRow) fameRow.classList.add('hidden');
@@ -766,6 +767,7 @@ function nextWave(){
 --------------------------------------------------------------------------- */
 function update(dt){
   const s=Game.stats, e=eff(), p=Game.player;
+  if(Game.attract) attractAI(dt);
   Game.time += dt;
   Game.waveTimer += dt;
   if(Game.waveTimer >= 45) nextWave();
@@ -987,6 +989,28 @@ function update(dt){
   UI.refreshHUD();
 }
 
+// Jump the demo straight into flashy mid-game action (built mall, fancy build).
+function setupAttract(){
+  ['gun','elec','cafe','market','gym','sports'].forEach((id,i)=>{ if(Game.plots[i]){ Game.plots[i].store=id; Game.plots[i].lvl=2; } });
+  Object.assign(Game.stats,{ projAdd:3, pierce:1, bulletSize:1.3, crit:0.22, aura:1, slow:1, burn:1, bounce:1, dr:0.45, regen:9 });
+  Game.stats.dmgMult+=1.3; Game.stats.rateMult+=0.7; Game.stats.maxHp+=160;
+  Object.assign(Game.stats.cardCounts,{cryo:1,fire:1,crit:1,critdmg:1,aura:1,bounce:1});
+  addDrone(); addDrone();
+  Game.cash=5000; Game.wave=7; Game.refugeOn=true; Game.mallTier=2;
+  checkSynergies(); recompute(); Game.stats.hp=eff().maxHp;
+}
+// Self-playing demo: kite the horde + circle, for attract-mode preview capture.
+function attractAI(dt){
+  const p=Game.player, k=Input.keys; k.w=k.a=k.s=k.d=false;
+  let near=1e9, nz=null;
+  for(const z of Game.zombies){ const d=(z.x-p.x)*(z.x-p.x)+(z.y-p.y)*(z.y-p.y); if(d<near){near=d;nz=z;} }
+  let vx=0, vy=0;
+  if(nz){ let ax=p.x-nz.x, ay=p.y-nz.y; const m=Math.hypot(ax,ay)||1; ax/=m; ay/=m; vx=ax+(-ay)*0.9; vy=ay+ax*0.9; }
+  vx+=(CX-p.x)*0.004; vy+=(CY-p.y)*0.004;
+  if(Math.abs(vx)<0.05&&Math.abs(vy)<0.05){ vx=Math.cos(Game.time*2); vy=Math.sin(Game.time*2.3); }
+  if(vx<-0.08)k.a=true; else if(vx>0.08)k.d=true;
+  if(vy<-0.08)k.w=true; else if(vy>0.08)k.s=true;
+}
 function fireWeapon(x,y,target,e){
   const baseAng = Math.atan2(target.y-y, target.x-x);
   const n = e.proj;
@@ -1882,6 +1906,8 @@ function loop(ts){
   if(!Game.last) Game.last=ts;
   let dt=(ts-Game.last)/1000; Game.last=ts;
   if(dt>0.05) dt=0.05; // clamp
+  if(Game.attract && Game.state==='levelup'){ const row=document.getElementById('card-row'); const c=row&&row.children[0]; if(c&&c.onclick) c.onclick(); }
+  if(Game.attract && Game.state==='gameover'){ startRun(); Game.attract=true; setupAttract(); }
   if(Game.state==='playing' && !Game.rotateBlock) update(dt);
   if(['playing','paused','levelup','build','gameover','ad','trader'].includes(Game.state)) render();
 }
@@ -2233,6 +2259,7 @@ async function boot(){
       if(location.hash.indexOf('cards')>=0) openLevelUp();
       if(location.hash.indexOf('syn')>=0){ Game.stats.cardCounts.cryo=1; Game.stats.cardCounts.fire=1; Game.stats.slow=1; Game.stats.burn=1; checkSynergies(); openLevelUp(); }
       if(location.hash.indexOf('boss')>=0){ Game.wave=10; spawnZombie('brute',true); const b=Game.zombies[Game.zombies.length-1]; b.x=CX; b.y=CY-30; b.hp=b.maxHp*0.45; b.bstate='slamwind'; b.btimer=0.35; }
+      if(location.hash.indexOf('attract')>=0){ Game.attract=true; setupAttract(); }
     }
   }, 350);
 
