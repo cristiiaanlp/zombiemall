@@ -1000,25 +1000,25 @@ function setupAttract(){
   Game._aiT=0; Game._aiVx=0; Game._aiVy=0;
   checkSynergies(); recompute(); Game.stats.hp=eff().maxHp;
 }
-// Self-playing demo that moves like a real, calm player: smooth orbit around
-// the mall, only nudging away when a zombie gets right on top. No jitter.
+// Self-playing demo. Uses ANALOG input (like a joystick) so motion is smooth
+// and continuous in any direction — not snapped to 8 keyboard directions.
+// The hero glides along a gentle circle around the mall (a natural kiting path).
 function attractAI(dt){
-  const p=Game.player, k=Input.keys; k.w=k.a=k.s=k.d=false;
+  const p=Game.player;
   Game._aiT=(Game._aiT||0)+dt;
-  // steady wide circle around the atrium (the natural "kite the horde" path)
-  const ang=Game._aiT*0.5, R=235;
-  let vx=(CX+Math.cos(ang)*R)-p.x, vy=(CY+Math.sin(ang)*R*0.78)-p.y;
-  const m=Math.hypot(vx,vy)||1; vx/=m; vy/=m;
-  // gentle dodge only if something is right next to us
+  const dx=p.x-CX, dy=p.y-CY, r=Math.hypot(dx,dy)||1, a=Math.atan2(dy,dx);
+  const R=215 + Math.sin(Game._aiT*0.35)*30;     // gentle breathing radius
+  // tangent (clockwise) for circular motion + soft pull toward target radius
+  let vx=Math.sin(a), vy=-Math.cos(a);
+  const err=(r-R)/R;
+  vx += (-dx/r)*err*1.1; vy += (-dy/r)*err*1.1;
+  // ease away only if a zombie is right on top
   let near=1e9,nz=null;
   for(const z of Game.zombies){ const d=(z.x-p.x)*(z.x-p.x)+(z.y-p.y)*(z.y-p.y); if(d<near){near=d;nz=z;} }
-  if(nz && near<72*72){ const mm=Math.hypot(p.x-nz.x,p.y-nz.y)||1; vx+=(p.x-nz.x)/mm*0.9; vy+=(p.y-nz.y)/mm*0.9; }
-  // smooth the heading so keys don't flicker (no shaking)
-  Game._aiVx=(Game._aiVx||0)*0.86+vx*0.14;
-  Game._aiVy=(Game._aiVy||0)*0.86+vy*0.14;
-  const sx=Game._aiVx, sy=Game._aiVy;
-  if(sx<-0.18)k.a=true; else if(sx>0.18)k.d=true;
-  if(sy<-0.18)k.w=true; else if(sy>0.18)k.s=true;
+  if(nz && near<70*70){ const mm=Math.hypot(p.x-nz.x,p.y-nz.y)||1; vx+=(p.x-nz.x)/mm*0.7; vy+=(p.y-nz.y)/mm*0.7; }
+  const m=Math.hypot(vx,vy)||1;
+  Input.keys.w=Input.keys.a=Input.keys.s=Input.keys.d=false;
+  Input.joy.active=true; Input.joy.id='ai'; Input.joy.dx=vx/m; Input.joy.dy=vy/m;
 }
 function fireWeapon(x,y,target,e){
   const baseAng = Math.atan2(target.y-y, target.x-x);
