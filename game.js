@@ -997,19 +997,28 @@ function setupAttract(){
   Object.assign(Game.stats.cardCounts,{cryo:1,fire:1,crit:1,critdmg:1,aura:1,bounce:1});
   addDrone(); addDrone();
   Game.cash=5000; Game.wave=7; Game.refugeOn=true; Game.mallTier=2;
+  Game._aiT=0; Game._aiVx=0; Game._aiVy=0;
   checkSynergies(); recompute(); Game.stats.hp=eff().maxHp;
 }
-// Self-playing demo: kite the horde + circle, for attract-mode preview capture.
+// Self-playing demo that moves like a real, calm player: smooth orbit around
+// the mall, only nudging away when a zombie gets right on top. No jitter.
 function attractAI(dt){
   const p=Game.player, k=Input.keys; k.w=k.a=k.s=k.d=false;
-  let near=1e9, nz=null;
+  Game._aiT=(Game._aiT||0)+dt;
+  // steady wide circle around the atrium (the natural "kite the horde" path)
+  const ang=Game._aiT*0.5, R=235;
+  let vx=(CX+Math.cos(ang)*R)-p.x, vy=(CY+Math.sin(ang)*R*0.78)-p.y;
+  const m=Math.hypot(vx,vy)||1; vx/=m; vy/=m;
+  // gentle dodge only if something is right next to us
+  let near=1e9,nz=null;
   for(const z of Game.zombies){ const d=(z.x-p.x)*(z.x-p.x)+(z.y-p.y)*(z.y-p.y); if(d<near){near=d;nz=z;} }
-  let vx=0, vy=0;
-  if(nz){ let ax=p.x-nz.x, ay=p.y-nz.y; const m=Math.hypot(ax,ay)||1; ax/=m; ay/=m; vx=ax+(-ay)*0.9; vy=ay+ax*0.9; }
-  vx+=(CX-p.x)*0.004; vy+=(CY-p.y)*0.004;
-  if(Math.abs(vx)<0.05&&Math.abs(vy)<0.05){ vx=Math.cos(Game.time*2); vy=Math.sin(Game.time*2.3); }
-  if(vx<-0.08)k.a=true; else if(vx>0.08)k.d=true;
-  if(vy<-0.08)k.w=true; else if(vy>0.08)k.s=true;
+  if(nz && near<72*72){ const mm=Math.hypot(p.x-nz.x,p.y-nz.y)||1; vx+=(p.x-nz.x)/mm*0.9; vy+=(p.y-nz.y)/mm*0.9; }
+  // smooth the heading so keys don't flicker (no shaking)
+  Game._aiVx=(Game._aiVx||0)*0.86+vx*0.14;
+  Game._aiVy=(Game._aiVy||0)*0.86+vy*0.14;
+  const sx=Game._aiVx, sy=Game._aiVy;
+  if(sx<-0.18)k.a=true; else if(sx>0.18)k.d=true;
+  if(sy<-0.18)k.w=true; else if(sy>0.18)k.s=true;
 }
 function fireWeapon(x,y,target,e){
   const baseAng = Math.atan2(target.y-y, target.x-x);
