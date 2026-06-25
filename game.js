@@ -456,7 +456,7 @@ const Game = {
 /* base player stats (modified by meta + cards) */
 function freshStats(){
   const m=Save.data.meta;
-  const startHp = 100 + (META[0].val(Save.metaLvl('startHp')));
+  const startHp = 120 + (META[0].val(Save.metaLvl('startHp')));
   return {
     hp:startHp, maxHp:startHp,
     dmg:10, dmgMult:1 + META[3].val(Save.metaLvl('damage')),
@@ -464,7 +464,7 @@ function freshStats(){
     projAdd:0 + (Save.metaLvl('damage')>=5?0:0),
     pierce:0, range:300,
     spd:185, spdMult:1,
-    regen:0, magnet:80 + META[5].val(Save.metaLvl('magnet')),
+    regen:1.5, magnet:80 + META[5].val(Save.metaLvl('magnet')),
     crit:0.05, critMul:2,
     shotgun:false, explosive:false, lifesteal:0,
     // extended power-up stats
@@ -683,7 +683,7 @@ function plotAt(x,y){
 --------------------------------------------------------------------------- */
 // Fame "heat": higher fame adds pressure but is decoupled enough that building
 // fast stays fun (it's a moderate risk dial, not a death sentence). Capped.
-function threat(){ return Math.min(2.2, 1 + Game.fame/1200); }
+function threat(){ return Math.min(1.8, 1 + Game.fame/1900); }
 function fameMul(){ return 1 + Game.fame/3000; }
 // Spawn cadence: gentle first waves, ramps from ~wave 8, floods late.
 function spawnInterval(){ return Math.max(0.09, (1.05 - Game.wave*0.05)) / threat() * (Game.comebackTimer>0?1.5:1); }
@@ -707,7 +707,7 @@ function spawnZombie(type, isBoss){
     hp: waveHp*def.hpMul*(isBoss?16:1),
     maxHp: waveHp*def.hpMul*(isBoss?16:1),
     spd: def.spd*spdMul*(isBoss?0.65:1),
-    dmg: (4+Game.wave*0.68)*def.dmg*fm*(isBoss?2.2:1),
+    dmg: (4+Game.wave*0.5)*def.dmg*fm*(isBoss?2.2:1),
     bounty: def.bounty*(isBoss?60:1)*(1+Game.wave*0.05),
     hitFlash:0, atkCd:0, ranged:def.ranged, explodes:def.explodes, boss:isBoss||false,
   };
@@ -1133,7 +1133,7 @@ function hurtPlayer(dmg){
   if(p.invuln>0) return;                 // i-frames: density can't instakill
   if(s.dodge>0 && Math.random()<s.dodge){ p.invuln=0.25; addText(p.x,p.y-20,'MISS','#9fffd0',14); return; }
   dmg *= (1 - (s.dr||0));                 // armor / damage reduction
-  s.hp-=dmg; p.hitFlash=0.5; p.invuln=0.55; Game.shake=Math.min(10,Game.shake+4);
+  s.hp-=dmg; p.hitFlash=0.5; p.invuln=0.7; Game.shake=Math.min(10,Game.shake+4);
   Audio2.hurt();
   addText(p.x,p.y-20,'-'+Math.round(dmg),'#ff4d5e',14);
 }
