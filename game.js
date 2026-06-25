@@ -249,7 +249,8 @@ const CG = {
     try{
       if(window.CrazyGames && window.CrazyGames.SDK){
         this.sdk = window.CrazyGames.SDK;
-        await this.sdk.init();
+        // never let a hung/slow SDK init block the game from starting
+        await Promise.race([ this.sdk.init(), new Promise(r=>setTimeout(r,4000)) ]);
         try{ this.env = this.sdk.environment || 'crazygames'; }catch(e){ this.env='crazygames'; }
         this.ready = (this.env !== 'disabled');
       }
@@ -1917,8 +1918,8 @@ function loop(ts){
   if(dt>0.05) dt=0.05; // clamp
   if(Game.attract && Game.state==='levelup'){ const row=document.getElementById('card-row'); const c=row&&row.children[0]; if(c&&c.onclick) c.onclick(); }
   if(Game.attract && Game.state==='gameover'){ startRun(); Game.attract=true; setupAttract(); }
-  if(Game.state==='playing' && !Game.rotateBlock) update(dt);
-  if(['playing','paused','levelup','build','gameover','ad','trader'].includes(Game.state)) render();
+  try{ if(Game.state==='playing' && !Game.rotateBlock) update(dt); }catch(e){ if(window.console) console.error(e); }
+  try{ if(['playing','paused','levelup','build','gameover','ad','trader'].includes(Game.state)) render(); }catch(e){ if(window.console) console.error(e); }
 }
 
 /* ---------------------------------------------------------------------------
@@ -2250,15 +2251,17 @@ async function boot(){
   const iv=setInterval(()=>{ prog=Math.min(90,prog+8+Math.random()*12); fill.style.width=prog+'%'; },90);
 
   // ensure custom fonts are ready so first paint isn't a flash of fallback
-  try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
+  // (raced with a timeout so a stuck font load can never hang the boot)
+  try{ if(document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,2500))]); }catch(e){}
 
   clearInterval(iv); fill.style.width='100%';
   CG.loadingStop();
 
   setTimeout(()=>{
     UI.hideAll(); Game.state='menu'; UI.show('menu'); UI.updateTokens();
-    // dev/testing hook: open index with #play to jump straight into a run
-    if(location.hash.indexOf('play')>=0){ startRun();
+    // dev/testing hooks — ONLY on localhost, never in production (CrazyGames)
+    const devHost = (location.hostname==='localhost' || location.hostname==='127.0.0.1' || location.hostname==='');
+    if(devHost && location.hash.indexOf('play')>=0){ startRun();
       if(location.hash.indexOf('demo')>=0){ // prebuild for screenshots
         ['cafe','gun','market'].forEach((id,i)=>{ Game.plots[i].store=id; Game.plots[i].lvl=2; });
         Game.stats.projAdd=2; Game.cash=3000; Game.mallTier=2; Game.wave=8; recompute();
