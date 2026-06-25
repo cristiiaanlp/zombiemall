@@ -686,7 +686,7 @@ function plotAt(x,y){
 function threat(){ return Math.min(2.2, 1 + Game.fame/1200); }
 function fameMul(){ return 1 + Game.fame/3000; }
 // Spawn cadence: gentle first waves, ramps from ~wave 8, floods late.
-function spawnInterval(){ return Math.max(0.12, (1.1 - Game.wave*0.04)) / threat() * (Game.comebackTimer>0?1.6:1); }
+function spawnInterval(){ return Math.max(0.09, (1.05 - Game.wave*0.05)) / threat() * (Game.comebackTimer>0?1.5:1); }
 
 function edgeSpawn(){
   const edge = Math.floor(Math.random()*4);
@@ -707,7 +707,7 @@ function spawnZombie(type, isBoss){
     hp: waveHp*def.hpMul*(isBoss?16:1),
     maxHp: waveHp*def.hpMul*(isBoss?16:1),
     spd: def.spd*spdMul*(isBoss?0.65:1),
-    dmg: (4+Game.wave*0.6)*def.dmg*fm*(isBoss?2.2:1),
+    dmg: (4+Game.wave*0.68)*def.dmg*fm*(isBoss?2.2:1),
     bounty: def.bounty*(isBoss?60:1)*(1+Game.wave*0.05),
     hitFlash:0, atkCd:0, ranged:def.ranged, explodes:def.explodes, boss:isBoss||false,
   };
@@ -866,13 +866,13 @@ function update(dt){
 
   // --- spawning ---
   Game.spawnTimer += dt;
-  // grace window: first 12s are calmer so the player can land the first builds
-  const grace = Game.time<12 ? 2.6 : 1;
-  const graceCap = Game.time<12 ? 10 : 260;
+  // short grace so the player can land the first builds, then the horde swells
+  const grace = Game.time<9 ? 2.2 : 1;
+  const graceCap = Game.time<9 ? 14 : 360;
   const si=spawnInterval()*grace;
   while(Game.spawnTimer>=si && Game.zombies.length<graceCap){
     Game.spawnTimer-=si;
-    const burst = 1 + Math.floor(Game.wave/5);   // hordes thicken steadily (bullet-heaven feel)
+    const burst = 1 + Math.floor(Game.wave/3);   // thick hordes (bullet-heaven feel)
     for(let i=0;i<burst;i++) spawnZombie(pickEnemyType(),false);
   }
 
